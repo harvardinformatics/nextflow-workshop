@@ -1,0 +1,29 @@
+{
+  "name": "Nextflow Workshop",
+  //"image": "ghcr.io/nextflow-io/training:latest",
+   "build": {
+     "dockerfile": "Dockerfile"
+  //   "context": ".."
+ },
+  "remoteUser": "root",
+  "remoteEnv": {
+      // Nextflow installation version
+      "NXF_HOME": "/workspaces/.nextflow",
+      "NXF_EDGE": "0",
+      "NXF_VER": "24.10.4",
+      // Other env vars
+      "HOST_PROJECT_PATH": "/workspaces/training",
+      "SHELL": "/bin/bash" // Ush bash
+  },  
+  "customizations": {
+      "vscode": {
+          "extensions": ["nf-core.nf-core-extensionpack"],
+          // Use Python from conda
+          "settings": {
+              "python.defaultInterpreterPath": "/opt/conda/bin/python"
+          },
+          // Use bash
+          "terminal.integrated.defaultProfile.linux": "bash"
+      }
+  }
+}

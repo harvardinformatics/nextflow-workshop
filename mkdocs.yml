@@ -1,0 +1,12 @@
+site_name: "Nextflow Workshop"
+nav:
+  - "Home": "index.md"
+theme:
+  name: "material"
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
