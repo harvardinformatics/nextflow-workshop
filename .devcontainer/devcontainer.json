@@ -1,10 +1,10 @@
 {
   "name": "Nextflow Workshop",
-  //"image": "ghcr.io/nextflow-io/training:latest",
-   "build": {
-     "dockerfile": "Dockerfile"
+  "image": "ghcr.io/harvardinformatics/nextflow_run:latest",
+  // "build": {
+  //   "dockerfile": "Dockerfile"
   //   "context": ".."
- },
+ //},
   "remoteUser": "root",
   "remoteEnv": {
       // Nextflow installation version
