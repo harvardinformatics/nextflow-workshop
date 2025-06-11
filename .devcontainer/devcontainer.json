@@ -1,6 +1,7 @@
 {
   "name": "Nextflow Workshop",
   "image": "ghcr.io/harvardinformatics/nextflow_run:latest",
+  "initializeCommand": "docker pull ghcr.io/harvardinformatics/nextflow_run:latest",
   // "build": {
   //   "dockerfile": "Dockerfile"
   //   "context": ".."
