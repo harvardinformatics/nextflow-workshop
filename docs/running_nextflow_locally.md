@@ -4,9 +4,9 @@ In this section we will go through running a few small jobs locally and examinin
 
 This section should be the bulk of the 3 hour workshop (1.5 hours?)
 
-### Run hello-nextflow 
+### Run hello-nextflow-simple
 
-Run hello-nextflow simple
+Run hello-nextflow-simple
 
 Learning goals
 
