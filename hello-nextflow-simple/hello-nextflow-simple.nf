@@ -5,8 +5,6 @@
  */
 process sayHello {
 
-    publishDir 'results', mode: 'copy'
-
     input:
         val greeting
 
@@ -23,8 +21,6 @@ process sayHello {
  * Use a text replacement tool to convert the greeting to uppercase
  */
 process convertToUpper {
-
-    publishDir 'results', mode: 'copy'
 
     input:
         path input_file

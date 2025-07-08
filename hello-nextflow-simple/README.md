@@ -1,6 +1,6 @@
 ## README for hello-nextflow-simple
 
-This is the repo for our tool hello-nextflow-simple! This tool takes a CSV of greetings, converts them to upper case and saves each greeting as its own text file.
+This is the repo for our tool hello-nextflow-simple! This tool takes a CSV of greetings, converts them to upper case and saves each greeting as its own text file. For each greeting in the CSV, this workflow will generate a greeting-output.txt file and an UPPER-greeting-output.txt file. 
 
 ```mermaid
 flowchart TB
@@ -53,4 +53,4 @@ Hello, Bonjour, Nihao
 
 ### How to run
 
-You can run this on the default demo data using the command `nextflow run main.nf`. If you would like to supply your own csv of gretings you can run this using the command `nextflow run main.nf --greeting your-csv.csv`
+You can run this on the default demo data using the command `nextflow run hello-nextflow-simple.nf`. If you would like to supply your own csv of gretings you can run this using the command `nextflow run hello-nextflow-simple.nf --greeting your-csv.csv`
