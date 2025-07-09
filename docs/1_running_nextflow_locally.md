@@ -1,3 +1,20 @@
+# OUTLINE
+
+Learning goals
+
+* Learn about the work directory and publish directory
+* Learn about generally how a nextflow pipeline might look
+* Learn about nextflow resume and how/why that works
+    * and when it doesn't work!
+
+Activities:
+
+run hello-nextflow and look at the files that are generated. Look at the console output for the files.
+look at the work directory.
+run hello-nextflow again and look at the console output for the files.
+delete one of the output files, add a new greeting in the csv and use nextflow resume.
+delete the work directory and run nextflow resume.
+
 ## Running nextflow locally
 
 In this section we will go through running a few small jobs locally and examining how nextflow works. All of this will apply to running it on the HPC, but because we are not requiring students to have a Cannon account, we will run everything locally. 
@@ -96,18 +113,3 @@ The important part of this output are the process lines, which tells you which p
 When you run Nextflow for the first time in a directory, it creates a directory called `work` where it will stage and write all files generated in the course of execution. Within the work directory, each instance of a process gets its own subdirectory, named with a hash in order to make it unique. Within this subdirectory, Nextflow stages inputs, writes helper files, writes out any logs, executes the script, and creates the output files for that process. 
 
 The path to this subdirectory is shown in truncated form 
-
-Learning goals
-
-* Learn about the work directory and publish directory
-* Learn about generally how a nextflow pipeline might look
-* Learn about nextflow resume and how/why that works
-    * and when it doesn't work!
-
-Activities:
-
-run hello-nextflow and look at the files that are generated. Look at the console output for the files.
-look at the work directory.
-run hello-nextflow again and look at the console output for the files.
-delete one of the output files, add a new greeting in the csv and use nextflow resume.
-delete the work directory and run nextflow resume.
