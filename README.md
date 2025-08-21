@@ -24,3 +24,4 @@ Pre-reqs
 * Has previously run SBATCH jobs on the cluster
 * Has previously run command line software before
 * Does not have to have written any scripts themselves
+* Has used conda or singularity in the past to manage software

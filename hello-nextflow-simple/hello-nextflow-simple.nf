@@ -5,8 +5,6 @@
  */
 process sayHello {
 
-    publishDir 'results', mode: 'copy'
-
     input:
         val greeting
 
@@ -23,8 +21,6 @@ process sayHello {
  * Use a text replacement tool to convert the greeting to uppercase
  */
 process convertToUpper {
-
-    publishDir 'results', mode: 'copy'
 
     input:
         path input_file
@@ -47,16 +43,15 @@ process collectGreetings {
 
     input:
         path input_files
-        val batch_name
 
     output:
-        path "COLLECTED-${batch_name}-output.txt" , emit: outfile
+        path "COLLECTED-output.txt" , emit: outfile
         val count_greetings , emit: count
 
     script:
         count_greetings = input_files.size()
     """
-    cat ${input_files} > 'COLLECTED-${batch_name}-output.txt'
+    cat ${input_files} > 'COLLECTED-output.txt'
     """
 }
 
@@ -64,7 +59,6 @@ process collectGreetings {
  * Pipeline parameters
  */
 params.greeting = 'greetings.csv'
-params.batch = 'test-batch'
 
 workflow {
 
@@ -80,12 +74,8 @@ workflow {
     convertToUpper(sayHello.out)
 
     // collect all the greetings into one file
-    collectGreetings(convertToUpper.out.collect(), params.batch)
+    collectGreetings(convertToUpper.out.collect())
 
     // emit a message about the size of the batch
     collectGreetings.out.count.view { "There were $it greetings in this batch" }
-
-    // optional view statements
-    //convertToUpper.out.view { "Before collect: $it" }
-    //convertToUpper.out.collect().view { "After collect: $it" }
 }

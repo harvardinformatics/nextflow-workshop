@@ -1,6 +1,11 @@
-site_name: "Nextflow Workshop"
+site_name: "Nextflow Run Workshop"
+
 nav:
-  - "Home": "index.md"
+  - Home: index.md
+  - Nextflow Run:
+      - workflow_language_basics.md
+      - running_nextflow_locally.md
+      - running_nextflow_cluster.md
 theme:
   name: "material"
 plugins:
