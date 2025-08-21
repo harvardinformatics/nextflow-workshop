@@ -155,7 +155,7 @@ Let's go over each of these dot files and what they contain:
 
 The `.command.sh` file tells you what command Nextflow actually ran. Any file name wildcards will be expanded into actual file names and parameters passed to the command line software call will also be fully parsed here. So this is a good place to start when you are debugging your nextflow workflow. When we get to the troubleshooting section, we will see how these files can be useful for debugging. 
 
-Note: the word directory can be full very quickly, because each time you run a process, it creates a new subdirectory in the `work` directory. If you run the same process multiple times, it will create multiple subdirectories. We recommend setting the work directory to a scratch directory rather than your home or lab share so that it does not fill up your allocation. You should think of everything in the `work` directory as temporary files that can be deleted at any time.
+Note: the work directory can be full very quickly, because each time you run a process, it creates a new subdirectory in the `work` directory. If you run the same process multiple times, it will create multiple subdirectories. We recommend setting the work directory to a scratch directory rather than your home or lab share so that it does not fill up your allocation. You should think of everything in the `work` directory as temporary files that can be deleted at any time.
 
 ### The `publishDir` directory
 
