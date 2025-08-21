@@ -4,7 +4,7 @@
 // See .github/.devcontainer/devcontainer.json for build
 //
 {
-    "name": "nextflow-workshop",
+    "name": "nextflow-training",
     "image": "ghcr.io/nextflow-io/training:latest",
     "workspaceFolder": "/workspaces/training",
     "remoteUser": "root",
@@ -17,7 +17,7 @@
         "HOST_PROJECT_PATH": "/workspaces/training",
         "SHELL": "/bin/bash" // Use bash
     },
-    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "onCreateCommand": "bash .devcontainer/setup.sh",
     "customizations": {
         "vscode": {
             "extensions": ["nf-core.nf-core-extensionpack"],
