@@ -4,9 +4,9 @@
 // See .github/.devcontainer/devcontainer.json for build
 //
 {
-    "name": "nextflow-training",
+    "name": "nextflow-workshop",
     "image": "ghcr.io/nextflow-io/training:latest",
-    "workspaceFolder": "/workspaces/nextflow_workshop",
+    "workspaceFolder": "/workspaces/nextflow-workshop",
     "remoteUser": "root",
     "remoteEnv": {
         // Nextflow installation version
@@ -14,7 +14,7 @@
         "NXF_EDGE": "0",
         "NXF_VER": "25.04.3",
         // Other env vars
-        "HOST_PROJECT_PATH": "/workspaces/nextflow_workshop",
+        "HOST_PROJECT_PATH": "/workspaces/nextflow-workshop",
         "SHELL": "/bin/bash" // Use bash
     },
     "onCreateCommand": "bash .devcontainer/setup.sh",
