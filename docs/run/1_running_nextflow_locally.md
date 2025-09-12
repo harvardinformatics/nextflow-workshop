@@ -21,68 +21,69 @@ In this section we will go through running a few small jobs locally and examinin
 
 This section should be the bulk of the 3 hour workshop (1.5 hours?)
 
-## Run hello-nextflow-simple
+## Run nextflow-simple
 
-In this section, we will be running a small nextflow workflow that converts a list of greetings into separate files of uppercase greetings. Navigiate to the `hello-nextflow-simple` folder and open the `README.md` file. This is what a typical README file for a third-party nextflow workflow might look like. It has a description of the inputs and outputs of the pipeline, installation instructions, and usage instructions. 
+In this section, we will be running a small nextflow workflow that converts a list of greetings into separate files of uppercase greetings. Navigiate to the `01-nextflow-simple` folder and open the `README.md` file. This is what a typical README file for a third-party nextflow workflow might look like. It has a description of the inputs and outputs of the pipeline, installation instructions, and usage instructions. 
 
 ### The process definition
 
-Now let's take a quick look at the `hello-nextflow-simple.nf` file in this folder. We won't go over too much of the details, but we do want to understand the general structure of a nextflow file. Nextflow scripts have two main components, **processes** and the **workflow**. Let's first look at the **process** block. 
+Now let's take a quick look at the `main.nf` file in this folder. We won't go over too much of the details, but we do want to understand the general structure of a nextflow file. Nextflow scripts have two main components, **processes** and the **workflow**. Let's first look at the **process** block. 
 
-```groovy title="hello-nextflow-simple.nf" linenums="1"
+```groovy title="main.nf" linenums="1"
 #!/usr/bin/env nextflow
 
 /*
- * Use echo to print 'Hello World!' to a file
- */
-process sayHello {
-
+    * A process to count lines in text files
+    * for a list of samples provided in a sample sheet.
+*/
+process COUNT_LINES {
+    conda "conda-forge::gawk=5.1.0"
+    
     input:
-        val greeting
-
+    tuple val(sample_id), path(input_file)
+    
     output:
-        path "${greeting}-output.txt"
+    tuple val(sample_id), path("${sample_id}.lines"), emit: lines
 
     script:
     """
-    echo '$greeting' > '$greeting-output.txt'
+    wc -l ${input_file} | awk '{print \$1}' > ${sample_id}.lines
     """
 }
 ```
 
-The process block represents a single step in the overall workflow. You can think of a process as a function that takes an input and generates an output. Processes are defined at the level of a single instance of a task. This process, called `sayHello`, has an input, and output, and a script. The purpose of `sayHello` is to take a greeting, such as `Hello`, and save it in a file called `Hello-output.txt`.
+The process block represents a single step in the overall workflow. You can think of a process as a function that takes an input and generates an output. Processes are defined at the level of a single instance of a task. This process, called `COUNT_LINES`, has an input, and output, and a script. The purpose of `COUNT_LINES` is to count the number of lines in a text file and save it in a file called `<sample_id>.lines`, where `<sample_id>` is the ID of the sample being processed.
 
 ### The workflow definition
 
-Now let's look at the bottom part of the `hello-nextflow-simple.nf` file, the **workflow** definition. 
+Now let's look at the bottom part of the `main.nf` file, the **workflow** definition. 
 
-```groovy title="hello-nextflow-simple.nf" linenums="1"
+```groovy title="main.nf" linenums="1"
+/*
+    * The main workflow definition
+*/
 workflow {
-
-    // create a channel for inputs from a CSV file
-    greeting_ch = Channel.fromPath(params.greeting)
-                        .splitCsv()
-                        .map { line -> line[0] }
-
-    // emit a greeting
-    sayHello(greeting_ch)
-
-    // convert the greeting to uppercase
-    convertToUpper(sayHello.out)
-
-    // collect all the greetings into one file
-    collectGreetings(convertToUpper.out.collect(), params.batch)
-
-    // emit a message about the size of the batch
-    collectGreetings.out.count.view { "There were $it greetings in this batch" }
-
-    // optional view statements
-    //convertToUpper.out.view { "Before collect: $it" }
-    //convertToUpper.out.collect().view { "After collect: $it" }
+    // Create input channel from sample sheet
+    samples_ch = Channel
+        .fromPath(params.samplesheet)
+        .splitText()
+        .map { it.trim() }
+        .map { sample -> tuple(sample, file("${params.input_dir}/${sample}.txt")) }
+    
+    // Run processes
+    COUNT_LINES(samples_ch)
+    COUNT_WORDS(samples_ch)
+    
+    // Join the outputs and combine counts
+    combined_ch = COUNT_LINES.out.join(COUNT_WORDS.out)
+    COMBINE_COUNTS(combined_ch)
+    
+    // Collect and aggregate all results
+    AGGREGATE(COMBINE_COUNTS.out.collect { it[1] })
 }
 ```
 
-The workflow portion of the nextflow file is where the processes are activated. As you can see, the `sayHello` process is called similar to a function. The outputs of the `sayHello` process are then passed to the next step, which is the `convertToUpper` process. 
+The workflow portion of the nextflow file is where the processes are activated. As you can see, the `COUNT_LINES` process is called in a similar fashion to a function. The outputs of the `COUNT_LINES` and `COUNT_WORDS` processes are joined together and passed to the `COMBINE_COUNTS` process. The output of `COMBINE_COUNTS` is then collected and passed to the `AGGREGATE` process.
 
 ## Running the workflow
 
@@ -95,18 +96,18 @@ nextflow run main.nf
 Your console output should look something like this:
 
 ```title="Output" linenums="1"
- N E X T F L O W   ~  version 24.10.4
+ N E X T F L O W   ~  version 25.04.3
 
-Launching `main.nf` [goofy_mayer] DSL2 - revision: 7924362939
+Launching `main.nf` [friendly_hamilton] DSL2 - revision: ac7cb7041c
 
 executor >  local (7)
-[c4/093240] process > sayHello (2)       [100%] 3 of 3 ✔
-[f1/f9da1a] process > convertToUpper (2) [100%] 3 of 3 ✔
-[8b/bd8116] process > collectGreetings   [100%] 1 of 1 ✔
-There were 3 greetings in this batch
+[3b/a692a0] COUNT_LINES (2)    [100%] 2 of 2 ✔
+[16/7f8faa] COUNT_WORDS (1)    [100%] 2 of 2 ✔
+[f3/359516] COMBINE_COUNTS (2) [100%] 2 of 2 ✔
+[46/cf1828] AGGREGATE          [100%] 1 of 1 ✔
 ```
 
-The important part of this output are the process lines, which tells you which processes were run, which how many suceeded, and where to find the **work directory** of the process call. Let's look at the result of the `sayHello` nextflow process.
+The important part of this output are the process lines, which tells you which processes were run, which how many suceeded, and where to find the **work directory** of the process call. Let's look at the result of the `COUNT_LINES` nextflow process.
 
 ### Examining the `work` directory
 
@@ -115,22 +116,22 @@ When you run Nextflow for the first time in a directory, it creates a directory 
 The path to this subdirectory is shown in truncated form in your terminal output, but by default only one representative directory is shown for each process. To see all the subdirectories for every process, you can run the nextflow command using the option `-ansi-log false`:
 
 ```
-N E X T F L O W  ~  version 25.04.6
-Launching `hello-nextflow-simple.nf` [kickass_brenner] DSL2 - revision: 733376c81e
-[59/d5b161] Submitted process > sayHello (1)
-[43/41749a] Submitted process > sayHello (2)
-[19/ee5a79] Submitted process > sayHello (3)
-[ab/e608e9] Submitted process > convertToUpper (3)
-[30/9f5ed4] Submitted process > convertToUpper (1)
-[c3/99715f] Submitted process > convertToUpper (2)
-[28/51dd90] Submitted process > collectGreetings
-There were 3 greetings in this batch
+N E X T F L O W  ~  version 25.04.3
+Launching `main.nf` [furious_swanson] DSL2 - revision: d216eb5f95
+[ab/75a135] Submitted process > COUNT_WORDS (2)
+[6d/c955dc] Submitted process > COUNT_LINES (2)
+[80/aa9673] Submitted process > COUNT_LINES (1)
+[0b/5dc796] Submitted process > COUNT_WORDS (1)
+[f4/cf765e] Submitted process > COMBINE_COUNTS (2)
+[78/bd8579] Submitted process > COMBINE_COUNTS (1)
+[56/867990] Submitted process > AGGREGATE
 ```
 
-You can see that the `sayHello` process was run three times, and each time it created a subdirectory in the `work` directory. Let's look at one of these directories. `cd` to the subdirectory `work/59/d5b161` (press tab to complete the directory path), run `tree -a` and you should see something like this:
+You can see that the `COUNT_LINES` process was run two times, and each time it created a subdirectory in the `work` directory. Let's look at one of these directories. `cd` to the subdirectory **that appears in your own terminal** corresponding to one of the COUNT_LINES processes (press tab to complete the directory path), run `tree -a` and you should see something like this:
 
 ```bash
-work/59/d5b1612cfe83377ed137f94c409c5d
+training/run/01-nextflow-simple/work/80/aa96730e803bfa2cf68af15b6a09c3 -> tree -a
+.
 ├── .command.begin
 ├── .command.err
 ├── .command.log
@@ -138,10 +139,11 @@ work/59/d5b1612cfe83377ed137f94c409c5d
 ├── .command.run
 ├── .command.sh
 ├── .exitcode
-└── Hello-output.txt
+├── sample1.lines
+└── sample1.txt -> /path/to/nextflow_workshop/run/01-nextflow-simple/data/sample1.txt
 ```
 
-The files that begin with `.` are all helper or log files. The other files are the output files of the process. Occastionally you will also see input files that were staged for this process. Staged in this case means that the input files were symlinked to this directory so that the process can access them. 
+The files that begin with `.` are all helper or log files. The `sample1.lines` file is the output file of the process. You can also see input files that were staged for this process. Staged in this case means that the input files were symlinked to this directory so that the process can access them. So the `sample1.txt` file is a symlink to the actual input file in the `data` directory.
 
 Let's go over each of these dot files and what they contain:
 
@@ -159,66 +161,76 @@ Note: the work directory can be full very quickly, because each time you run a p
 
 ### The `publishDir` directory
 
-The `publishDir` directory is where nextflow puts output files that you want to save. Pipeline authors usually specify this directory in a configuration file, and sometimes it is an option that you can pass to the pipeline when you run it. In our case, the process `collectGreetings` is the last process in the workflow and it has a `publishDir` directive that specifies where the output files should be written. 
+The `publishDir` directory is where nextflow puts output files that you want to save. Pipeline authors usually specify this directory in a configuration file, and sometimes it is an option that you can pass to the pipeline when you run it. In our case, the process `AGGREGATE` is the last process in the workflow and it has a `publishDir` directive that specifies where the output files should be written. At the top of the `main.nf` file, you can see that the default output directory is set to `results`.
 
-```groovy title="hello-nextflow-simple.nf" linenums="1"
-process collectGreetings {
-    publishDir 'results', mode: 'copy'
+```groovy title="main.nf" linenums="1"
+/*
+    * A process to aggregate all summary files
+    * into a single TSV file.
+*/
+process AGGREGATE {
+    conda "conda-forge::gawk=5.1.0"
+
+    publishDir "${params.outdir}", mode: 'copy'
     
     input:
-    path input_files
-
+    path summary_files
+    
     output:
-        path "COLLECTED-output.txt" , emit: outfile
-        val count_greetings , emit: count
+    path "aggregate-summary.tsv"
 
     script:
-        count_greetings = input_files.size()
     """
-    cat ${input_files} > 'COLLECTED-output.txt'
+    echo -e "sample\tlines\twords" > aggregate-summary.tsv
+    for summary_file in ${summary_files}; do
+        SAMPLE_NAME=\$(basename "\$summary_file" .summary)
+        LINES=\$(grep -e "^lines\t" "\$summary_file" | cut -f2)
+        WORDS=\$(grep -e "^words\t" "\$summary_file" | cut -f2)
+        echo -e "\$SAMPLE_NAME\t\$LINES\t\$WORDS" >> aggregate-summary.tsv
+    done
     """
 }
 ```
 
-Now, if we look into the `results` directory, we should see a file called `COLLECTED-output.txt` that contains all the greetings from the input CSV file, but capitalized. 
+Now, if we look into the `results` directory, we should see a file called `aggregate-summary.tsv` that contains all the information from the individual summary files, but in one place.
 
 ## Resuming a workflow
 
-One of the best features of a workflow manager like nextflow is resumability. Resumability is the ability to restart a workflow from where it left off, rather than starting over from scratch. This is especially useful when running long-running workflows or when you want to make changes to a workflow without losing progress. Let's see how this works by modifying the input CSV file and resuming the workflow. Open the `greetings.csv` file in the `hello-nextflow-simple` directory and add a new greeting to the file, then save it. It should look something like this:
+One of the best features of a workflow manager like nextflow is resumability. Resumability is the ability to restart a workflow from where it left off, rather than starting over from scratch. This is especially useful when running long-running workflows or when you want to make changes to a workflow without losing progress. Let's see how this works by modifying the `samplesheet.txt` file and resuming the workflow. Open the `samplesheet.txt` file in the `01-nextflow-simple` directory and add a new sample to the file (`sample3`), then save it. It should look something like this:
 
 ```csv
-Hello
-Bonjour
-Holà
-Aloha
+sample1
+sample2
+sample3
+
 ```
 
 Now, in your terminal, run the following command to resume the workflow:
 
 ```bash
-nextflow run hello-nextflow-simple.nf -resume
+nextflow run main.nf -resume
 ```
 
 ```
- N E X T F L O W   ~  version 25.04.6
+ N E X T F L O W   ~  version 25.04.3
 
-Launching `hello-nextflow-simple.nf` [special_engelbart] DSL2 - revision: 733376c81e
+Launching `main.nf` [astonishing_faggin] DSL2 - revision: d216eb5f95
 
-executor >  local (3)
-[1d/9aa5d4] sayHello (4)       [100%] 4 of 4, cached: 3 ✔
-[4a/393bdd] convertToUpper (4) [100%] 4 of 4, cached: 3 ✔
-[28/6e6f32] collectGreetings   [100%] 1 of 1 ✔
-There were 4 greetings in this batch
+executor >  local (4)
+[6e/e0043f] COUNT_LINES (3)    [100%] 3 of 3, cached: 2 ✔
+[c0/f6fbab] COUNT_WORDS (3)    [100%] 3 of 3, cached: 2 ✔
+[64/2ba6fc] COMBINE_COUNTS (3) [100%] 3 of 3, cached: 2 ✔
+[47/b75dec] AGGREGATE          [100%] 1 of 1 ✔
 ```
 
-You can see that nextflow recognized that the first three greetings were already processed. The line "cached: 3" indicates that there were 3 process calls that nextflow did not need to run again. So it ran `sayHello` and `convertToUpper` for the new greeting and then had to rerun `collectGreetings` to collect all the greetings into one file. If you look in the `results` directory, you should see that the `COLLECTED-output.txt` file now contains the new greeting as well.
+You can see that nextflow recognized that the first two samples were already processed. The line "cached: 2" indicates that there were 2 process calls that nextflow did not need to run again. So it ran `COUNT_LINES`, `COUNT_WORDS`, and `COMBINE_COUNTS`, for the new greeting and then had to rerun `AGGREGATE` to collect all the counts into one file. If you look in the `results` directory, you should see that the `aggregate-summary.tsv` file now contains the new sample as well.
 
 What kinds of modifications will trigger a rerun vs a cache? Here are some examples:
 
-1. **Input file changes**: If you modify the input files (e.g., `greetings.csv`), nextflow will detect the changes and rerun the affected processes
+1. **Input file changes**: If you modify the input files (e.g., `sample1.txt` or `samplesheet.txt`), nextflow will detect the changes and rerun the affected processes
 2. **Process script changes**: Changing the script section of a process will affect that process and any downstream processes that depend on it. 
 3. **Parameter changes**: If you change any parameters passed to a process (e.g., changing the `publishDir`), nextflow will rerun the process.
-4. **Output file changes**: Deleting/modifying the output files (e.g., `COLLECTED-output.txt`)
+4. **Output file changes**: Deleting/modifying the output files (e.g., `aggregate-summary.tsv`)
 5. **Work directory deletion**: If you delete the `work` directory, nextflow will rerun all processes because it has no record of what was previously run.
 
 What are some modifications that will not trigger a rerun?
