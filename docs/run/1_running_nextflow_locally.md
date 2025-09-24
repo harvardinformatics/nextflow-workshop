@@ -238,3 +238,30 @@ What are some modifications that will not trigger a rerun?
 1. **Deleting irrelevant files**: If you delete work directory files that did not participate in the previous run, it will not affect the next run. For example, if you did a bunch of test runs on test data and then a production run on real data, deleting the work directories related to the test runs will not affect the production run.
 2. **Adding new files**: If you add new files to the input directory that were not part of the previous run, nextflow will not rerun the previous processes, but it will run the new processes for the new files.
 
+## Clearing the work directory
+
+As you run nextflow workflows, the `work` directory can fill up quickly. This is because each instance of a process creates a new subdirectory, so even if you run the same workflow multiple times, as long as a process is run and not cached, it will create a new subdirectory. In our case, since we're working with small text files, it's not too big a deal, but in real-world scenarios, the `work` directory can contain large files that can quickly consume disk space.
+
+If you want to clear the `work` directory, you can simply delete it. However, be aware that if you delete the `work` directory and then try to resume a workflow, nextflow will not be able to find any cached results and will rerun all processes from scratch. 
+
+Each time you run nextflow, that run gets assigned a run name that's a combination of an adjective and a scientist name. That's the "furious_swanson" etc that we've seen in the output. You can also see the log of all your runs using the command `nextflow log`. Once you know the run names of the runs you want to delete, you can use the command `nextflow clean <run_name> -f` to delete that run's work directories. You can also use `-before`, `-after`, and `-but` to control how many sessions of work directories to delete. Another way to clean your work directory is simply to trash the entire thing using the classic `rm -rf work` command. Let's do that now and then rerun the workflow with `-resume` to see what happens.
+
+```bash
+rm -rf work
+nextflow run main.nf -resume
+```
+
+You should see that everything got rerun because nextflow could not find any cached results.
+
+```
+ N E X T F L O W   ~  version 25.04.3
+
+Launching `main.nf` [insane_becquerel] DSL2 - revision: d216eb5f95
+
+executor >  local (7)
+[80/aa9673] COUNT_LINES (1)    [100%] 2 of 2 ✔
+[0b/5dc796] COUNT_WORDS (1)    [100%] 2 of 2 ✔
+[b5/e14af8] COMBINE_COUNTS (2) [100%] 2 of 2 ✔
+[32/b777a7] AGGREGATE          [100%] 1 of 1 ✔
+```
+

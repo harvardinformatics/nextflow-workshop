@@ -1,0 +1,8 @@
+{
+    "samplesheet": "samplesheet.txt",
+    "input_dir": "data",
+    "outdir": "results_full",
+    "run_lines": true,
+    "run_words": true,
+    "run_aggregate": true
+}

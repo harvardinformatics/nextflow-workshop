@@ -1,0 +1,6 @@
+{
+    "run_lines": true,
+    "run_words": false,
+    "run_aggregate": false,
+    "outdir": "results_minimal"
+}
