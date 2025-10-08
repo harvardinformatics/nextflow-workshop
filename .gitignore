@@ -4,7 +4,7 @@
 serve
 work
 .nextflow*
-results
+results*/
 transcript-index
 .vscode
 site/
