@@ -20,7 +20,7 @@ Before we get started teaching any workshop, I like to point out that, like any 
 
 This is all to say, if you hear us saying a word that you're familiar with but it's obvious that we're using it in a different way, or if you hear an unfamiliar term, please ask us to explain it. This knowledge gap is one of the most difficult parts about teaching a specific topic mostly because the teachers aren't usually aware of it.
 
-We've put together a table of terms relating to Snakemake and workflows and their definitions in this context: [Workflow terminology](../../../resources/glossary/#workflow-management).
+We've put together a table of terms relating to Nextflow and workflows and their definitions in this context: [Workflow terminology](../../../resources/glossary/#workflow-management).
 
 There are also other tables to browse on the glossary. Please let us know if there is anything you think we should add to this table.
 
@@ -160,7 +160,7 @@ Today, of course, we'll be talking about [**Nextflow** :octicons-link-external-2
 
 Nextflow is a workflow language that is based on the Groovy programming language, which itself is based on Java. Its design philosophy is based on the concept of **dataflow programming**, which is a programming paradigm that models a program as a directed graph of the data flowing between operations. In Nextflow, these operations are called **processes** and the data flowing between them are called **channels**. 
 
-When you run Nextflow, you create a head job that manages the workflow and submits jobs to the local machine or a job scheduler. Each process is run in its own isolated environment, which can be a docker or singularity container, a conda environment, or just the local environment. This means that each process can have its own dependencies and versions of software without interfering with other processes.
+When you run Nextflow, you create a head job that manages the workflow and submits jobs to the local machine or a job scheduler (like SLURM). Each process is run in its own isolated environment, which can be a docker or singularity container, a conda environment, or just the local environment. This means that each process can have its own dependencies and versions of software without interfering with other processes.
 
 <!-- Need image diagram of head job submitting child jobs-->
 
@@ -315,7 +315,9 @@ The workflow portion of the nextflow file is where the processes are activated. 
 
 ## Running the workflow
 
-Now let's run the workflow according to the instructions on the README. In your terminal, run the following command:
+Now let's run the workflow according to the instructions on the README. 
+
+> **Activity**: In your terminal, run the following command:
 
 ```bash
 nextflow run main.nf
@@ -341,7 +343,7 @@ The important part of this output are the process lines, which tells you which p
 
 When you run Nextflow for the first time in a directory, it creates a directory called `work` where it will stage and write all files generated in the course of execution. Within the work directory, each instance of a process gets its own subdirectory, named with a hash in order to make it unique. Within this subdirectory, Nextflow stages inputs, writes helper files, writes out any logs, executes the script, and creates the output files for that process. 
 
-The path to this subdirectory is shown in truncated form in your terminal output, but by default only one representative directory is shown for each process. To see all the subdirectories for every process, you can run the nextflow command using the option `-ansi-log false`:
+The path to this subdirectory is shown in truncated form in your terminal output within square brackets at the beginning of the log. By default only one representative directory is shown for each process. To see all the subdirectories for every process, you can run the nextflow command using the option `-ansi-log false`:
 
 ```
 N E X T F L O W  ~  version 25.04.3
@@ -355,7 +357,9 @@ Launching `main.nf` [furious_swanson] DSL2 - revision: d216eb5f95
 [56/867990] Submitted process > AGGREGATE
 ```
 
-You can see that the `COUNT_LINES` process was run two times, and each time it created a subdirectory in the `work` directory. Let's look at one of these directories. `cd` to the subdirectory **that appears in your own terminal** corresponding to one of the COUNT_LINES processes (press tab to complete the directory path), run `tree -a` and you should see something like this:
+You can see that the `COUNT_LINES` process was run two times and each time it created a subdirectory in the `work` directory. For example, during this run, `COUNT_LINES` created a directory `work/6d/c955dc....`, since `[6d/c955dc]` appears before the `COUNT_LINES` process' log line. Note that the actual directory name is longer than what is displayed in the log, and these directories will be different for your own run! Let's look at one of these directories. 
+
+> **Activity**: `cd` to the subdirectory **that appears in your own terminal** corresponding to one of the COUNT_LINES processes (press tab to complete the directory path), run `tree -a` and you should see something like this:
 
 ```bash
 training/run/01-nextflow-simple/work/80/aa96730e803bfa2cf68af15b6a09c3 -> tree -a
@@ -375,17 +379,21 @@ The files that begin with `.` are all helper or log files. The `sample1.lines` f
 
 Let's go over each of these dot files and what they contain:
 
-* `.command.begin`: Metadata related to the beginning of the execution of the process call
-* `.command.err`: Error messages (stderr) emitted by the process call
-* `.command.log`: Complete log output emitted by the process call (Both stdout and stderr)
-* `.command.out`: Regular output (stdout) by the process call
-* `.command.run`: Full script run by Nextflow to execute the process call
-* `.command.sh`: The command that was actually run by the process call
-* `.exitcode`: The exit code resulting from the command
+| File             | Description |
+| ---------------- | ----------- |
+| `.command.begin` | Metadata related to the beginning of the execution of the process call |
+| `.command.err`   | Error messages (stderr) emitted by the process call |
+| `.command.log`   | Complete log output emitted by the process call (Both stdout and stderr) |
+| `.command.out`   | Regular output (stdout) by the process call |
+| `.command.run`   | Full script run by Nextflow to execute the process call |
+| `.command.sh`    | The command that was actually run by the process call |
+| `.exitcode`      | The exit code resulting from the command |
 
 The `.command.sh` file tells you what command Nextflow actually ran. Any file name wildcards will be expanded into actual file names and parameters passed to the command line software call will also be fully parsed here. So this is a good place to start when you are debugging your nextflow workflow. When we get to the troubleshooting section, we will see how these files can be useful for debugging. 
 
-Note: the work directory can be full very quickly, because each time you run a process, it creates a new subdirectory in the `work` directory. If you run the same process multiple times, it will create multiple subdirectories. We recommend setting the work directory to a scratch directory rather than your home or lab share so that it does not fill up your allocation. You should think of everything in the `work` directory as temporary files that can be deleted at any time.
+!!! note
+
+    The work directory can be full very quickly, because each time you run a process, it creates a new subdirectory in the `work` directory. If you run the same process multiple times, it will create multiple subdirectories. We recommend setting the work directory to a scratch directory rather than your home or lab share so that it does not fill up your allocation. You should think of everything in the `work` directory as temporary files that can be deleted at any time.
 
 ### The `publishDir` directory
 
@@ -424,16 +432,17 @@ Now, if we look into the `results` directory, we should see a file called `aggre
 
 ## Resuming a workflow
 
-One of the best features of a workflow manager like nextflow is resumability. Resumability is the ability to restart a workflow from where it left off, rather than starting over from scratch. This is especially useful when running long-running workflows or when you want to make changes to a workflow without losing progress. Let's see how this works by modifying the `samplesheet.txt` file and resuming the workflow. Open the `samplesheet.txt` file in the `01-nextflow-simple` directory and add a new sample to the file (`sample3`), then save it. It should look something like this:
+One of the best features of a workflow manager like nextflow is resumability. Resumability is the ability to restart a workflow from where it left off, rather than starting over from scratch. This is especially useful when running long-running workflows or when you want to make changes to a workflow without losing progress. Let's see how this works by modifying the `samplesheet.txt` file and resuming the workflow. 
+
+> **Exercise**: Open the `samplesheet.txt` file in the `01-nextflow-simple` directory and add a new sample to the file (`sample3`), then save it. It should look something like this:
 
 ```csv
 sample1
 sample2
 sample3
-
 ```
 
-Now, in your terminal, run the following command to resume the workflow:
+> Now, in your terminal, run the following command to resume the workflow:
 
 ```bash
 nextflow run main.nf -resume
@@ -451,9 +460,11 @@ executor >  local (4)
 [47/b75dec] AGGREGATE          [100%] 1 of 1 ✔
 ```
 
-You can see that nextflow recognized that the first two samples were already processed. The line "cached: 2" indicates that there were 2 process calls that nextflow did not need to run again. So it ran `COUNT_LINES`, `COUNT_WORDS`, and `COMBINE_COUNTS`, for the new greeting and then had to rerun `AGGREGATE` to collect all the counts into one file. If you look in the `results` directory, you should see that the `aggregate-summary.tsv` file now contains the new sample as well.
+You should see that nextflow recognized that the first two samples were already processed. The line "cached: 2" indicates that there were 2 process calls that nextflow did not need to run again. So it ran `COUNT_LINES`, `COUNT_WORDS`, and `COMBINE_COUNTS`, for the new greeting and then had to rerun `AGGREGATE` to collect all the counts into one file. If you look in the `results` directory, you should see that the `aggregate-summary.tsv` file now contains the new sample as well.
 
-What kinds of modifications will trigger a rerun vs a cache? Here are some examples:
+### What kinds of modifications will trigger a rerun vs a cache? 
+
+Here are some examples:
 
 1. **Input file changes**: If you modify the input files (e.g., `sample1.txt` or `samplesheet.txt`), nextflow will detect the changes and rerun the affected processes
 2. **Process script changes**: Changing the script section of a process will affect that process and any downstream processes that depend on it. 
@@ -461,7 +472,7 @@ What kinds of modifications will trigger a rerun vs a cache? Here are some examp
 4. **Output file changes**: Deleting/modifying the output files (e.g., `aggregate-summary.tsv`)
 5. **Work directory deletion**: If you delete the `work` directory, nextflow will rerun all processes because it has no record of what was previously run.
 
-What are some modifications that will not trigger a rerun?
+### What are some modifications that will not trigger a rerun?
 
 1. **Deleting irrelevant files**: If you delete work directory files that did not participate in the previous run, it will not affect the next run. For example, if you did a bunch of test runs on test data and then a production run on real data, deleting the work directories related to the test runs will not affect the production run.
 2. **Adding new files**: If you add new files to the input directory that were not part of the previous run, nextflow will not rerun the previous processes, but it will run the new processes for the new files.
@@ -472,14 +483,16 @@ As you run nextflow workflows, the `work` directory can fill up quickly. This is
 
 If you want to clear the `work` directory, you can simply delete it. However, be aware that if you delete the `work` directory and then try to resume a workflow, nextflow will not be able to find any cached results and will rerun all processes from scratch. 
 
-Each time you run nextflow, that run gets assigned a run name that's a combination of an adjective and a scientist name. That's the "furious_swanson" etc that we've seen in the output. You can also see the log of all your runs using the command `nextflow log`. Once you know the run names of the runs you want to delete, you can use the command `nextflow clean <run_name> -f` to delete that run's work directories. You can also use `-before`, `-after`, and `-but` to control how many sessions of work directories to delete. Another way to clean your work directory is simply to trash the entire thing using the classic `rm -rf work` command. Let's do that now and then rerun the workflow with `-resume` to see what happens.
+Each time you run nextflow, that run gets assigned a run name that's a combination of an adjective and a scientist name. That's the "furious_swanson" etc that we've seen in the output. You can also see the log of all your runs using the command `nextflow log`. Once you know the run names of the runs you want to delete, you can use the command `nextflow clean <run_name> -f` to delete that run's work directories. You can also use `-before`, `-after`, and `-but` to control how many sessions of work directories to delete. Another way to clean your work directory is simply to trash the entire thing using the classic `rm -rf work` command. 
+
+> **Exercise**: Let's do that now and then rerun the workflow with `-resume` to see what happens.
 
 ```bash
 rm -rf work
 nextflow run main.nf -resume
 ```
 
-You should see that everything got rerun because nextflow could not find any cached results.
+You should see that everything was run again because nextflow could not find any cached results.
 
 ```
  N E X T F L O W   ~  version 25.04.3
@@ -498,13 +511,14 @@ executor >  local (7)
 ## Using Config files
 
 !!! alert
+
     We will now be switching our focus to configuration of nextflow runs, and using the directory `run/02-nextflow-config`. 
 
-Often times, you will find in the instructions for a nextflow workflow that you will need to provide a configuration file or some parameters. This is because the workflow author has made the workflow more flexible and customizable. In this version of the workflow, we have the same processes as before, but there are some additional files that the author has provided. The README.md file is also a bit different and contains more information on how to customize the workflow.
+Often times, you will find in the instructions for a nextflow workflow that you will need to provide a configuration file or some parameters. Config files enable the workflow to be used generally for any properly formatted input data. In this version of the workflow, we have the same processes as before, but there are some additional files that the author has provided. The README.md file is also a bit different and contains more information on how to customize the workflow.
 
 ### Software environments
 
-Let's take a brief digression into talking about software environments, which is one of the configurable options of this pipeline. Good pipeline writers will include a couple of options for how to manage the software dependencies of their workflow. The two most common options are conda and docker/singularity. Conda is a package manager that allows you to create isolated environments with specific versions of software. Docker and Singularity are containerization technologies that allow you to package software and its dependencies into a single image that can be run on any system with the appropriate container runtime.
+Let's take a brief digression into talking about software environments, which is one of the configurable options of this pipeline. Many pipelines will include a couple of options for how to manage the software dependencies of their workflow. The two most common options are conda and docker/singularity. Conda is a package manager that allows you to create isolated environments with specific versions of software. Docker and Singularity are containerization technologies that allow you to package software and its dependencies into a single image that can be run on any system with the appropriate container runtime.
 
 Conda:
 
