@@ -313,6 +313,8 @@ workflow {
 
 The workflow portion of the nextflow file is where the processes are activated. As you can see, the `COUNT_LINES` process is called in a similar fashion to a function. The outputs of the `COUNT_LINES` and `COUNT_WORDS` processes are joined together and passed to the `COMBINE_COUNTS` process. The output of `COMBINE_COUNTS` is then collected and passed to the `AGGREGATE` process.
 
+Let's demonstrate a feature of the nextflow extenion for VSCode by jumping down to the workflow definition. Right above the workflow definition is a greyed out text that says "Preview DAG". Clicking this creates a visualization of the workflow in a new tab. Try it now. This is a useful feature for visualizing the structure of a nextflow workflow.
+
 ## Running the workflow
 
 Now let's run the workflow according to the instructions on the README. In your terminal, run the following command:
@@ -645,3 +647,140 @@ dag {
 ```
 
 Let's take a look at the `results/pipeline_info` directory now. You should see a few files describing the latest run of the workflow. Download the html files to your local machine by right clicking it and then open them in a web browser to see the report and timeline.
+
+## Debugging nextflow workflows
+
+While nextflow is a robust workflow manager, there are always problems that can arise. Common issues include poor documentation, missing dependencies, misconfigured parameters, missing input files, and others. For this section, navigate to the `03-nextflow-debugging` directory. 
+
+### Debugging software issues
+
+Run the following command to see an example of a software issue:
+
+```bash
+nextflow run main.nf
+```
+
+You should see something like
+
+```
+ERROR ~ Error executing process > 'COWPY'
+
+Caused by:
+  Process `COWPY` terminated with an error exit status (127)
+
+
+Command executed:
+
+  echo Workflow completed! Samples processed: sample1, sample2 | cowpy > cowpy-output.txt
+
+Command exit status:
+  127
+
+Command output:
+  (empty)
+
+Command error:
+  .command.sh: line 2: cowpy: command not found
+
+Work dir:
+  /workspaces/training/run/03-troubleshoot/work/87/3feb319ac1b7f80513e98232ab71ae
+```
+
+Lets go to the work directory in your error message and run `ls -al` to see the files there. Look at the `.command.err` file to see the error message. Look at the `.command.sh` file to see the command that was run. 
+
+??? success "Solution"
+
+    The error message indicates that the command `cowpy` was not found. Going into the `main.nf` reveals that the software can be loaded either as a container or as a conda environment. But by default, neither option is enabled. To fix this, create a `nextflow.config` file and write `process.conda = enabled`. Then rerun the workflow. Alternatively, you can run the workflow with the `-with-conda` option to enable conda for this run only.
+
+### Did the workflow run?
+
+Examine the output of the workflow and the `samplesheet.txt` file. Did the workflow run successfully? You may have noticed that there are empty output files for sample3, which is listed in the samplesheet file, but not present in the data folder. And now the `aggregate-summary.tsv` file is messed up because the `sample3.summary` file is malformed. What's going on in the work directory of sample3? To view the work directory for sample3, we need to use the command below:
+
+```
+nextflow log RUN_NAME -f "name,process,exit,hash"
+```
+
+Where you substitute `RUN_NAME` with the actual run name from the run you're interested in. We should get something like this:
+
+```
+COUNT_LINES (sample3)   COUNT_LINES     0       fa/5ecee2
+COWPY   COWPY   127     1e/279c95
+COUNT_WORDS (sample2)   COUNT_WORDS     0       46/032e55
+COUNT_WORDS (sample1)   COUNT_WORDS     0       16/d8d9b0
+COUNT_LINES (sample2)   COUNT_LINES     0       00/98a293
+COUNT_LINES (sample1)   COUNT_LINES     0       33/75f141
+COUNT_WORDS (sample3)   COUNT_WORDS     0       66/12bc09
+COMBINE_COUNTS (sample2)        COMBINE_COUNTS  -       d7/4514dc
+```
+
+You'll notice that the exit statuses are all 0, which means the jobs completed successfully. Let's go into the COUNT_LINES work directory for sample3 and see what happened there and run `ls -al`. You'll see that in the `.command.err` there is an error message that says `wc: sample3.txt: No such file or directory`. However, the `.exitstatus` file says 0, which means the process completed successfully. This is because the `wc` command is piped to `awk`, and the `awk` command completes successfully even if the `wc` command fails. So the overall exit status of the process is 0, even though there was an error in the command. We can fix this by making the shell more strict about error handling. 
+
+We can add the following to the `nextflow.config` file:
+
+```groovy
+process.shell = [
+    "bash",
+    "-e",         // Exit if a tool returns a non-zero status/exit code
+    "-u",         // Treat unset variables and parameters as an error
+    "-o",         // Returns the status of the last command to exit..
+    "pipefail"    //   ..with a non-zero status or zero if all successfully execute
+]
+```
+
+Existing third party nextflow workflow may not have this setting (though they should), so be aware that you may need to add it yourself.
+
+Now, if you rerun the workflow, it should fail when it encounters the missing input file for sample3. Let's re-examine the work directory for the now failed sample3. The `.command.sh` now has a bash header that has our pipefail settings and the `.exitcode` file now shows a non-zero exit code.
+
+We can run this with a fixed samplesheet using the command:
+
+```bash
+nextflow run main.nf --samplesheet solutions/samplesheet_fixed.txt -resume
+```
+
+### Publishing results
+
+Let's clear the results directory with `rm results/*`. Now let's run the `main_2.nf` workflow. This workflow has been modified so that only the final outputs, `aggregate-summary.tsv` and `cowpy-output.txt`, are published to the results directory. All intermediate files are kept in the work directory only. 
+
+If we do not like this behavior, we can modify the `nextflow.config` file to add a global `publishDir` directive that will override the process-specific directives. Add the following to your `nextflow.config` file:
+
+```groovy
+params.outdir = 'results'
+process {
+    publishDir = "${params.outdir}"
+}
+``` 
+
+Now, if we rerun the workflow, all intermediate files will be published to the results directory as well.
+
+```bash
+nextflow run main_2.nf --samplesheet solutions/samplesheet_fixed.txt -resume
+```
+
+Note that by default, the publish method is to use a symlink. You can see this by running `ls -al results/`. If you want to copy the files instead of symlinking them, you can add `mode: 'copy'` to the `publishDir` directive in the `nextflow.config` file:
+
+```groovy
+params.outdir = 'results'
+process {
+    publishDir = [
+        path:  "${params.outdir}",
+        mode:  'copy'
+    ]
+}
+```
+
+## Running Nextflow on the HPC
+
+When we run nextflow on the HPC, what it is doing is submitting individual jobs to the job scheduler (SLURM in our case) for each process call. Recall that the header for an SBATCH job script looks like this:
+
+```bash
+#!/bin/bash
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=1G
+#SBATCH --time=00:10:00
+#SBATCH --queue=shared
+
+# Your commands here
+blah blah command here
+```
+
+The parameters
