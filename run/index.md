@@ -768,7 +768,12 @@ process {
 }
 ```
 
-## Running Nextflow on the HPC
+## Nextflow on the HPC
+
+
+!!! tip "How to install"
+
+    Whether you have nextflow installed on the cluster in your base environment or in a conda environment is up to you. I like having nextflow installed in my base environment so I don't have to think about loading up a conda environment. Plus it's the recommended way so as to avoid outdated versions. 
 
 When we run nextflow on the HPC, what it is doing is submitting individual jobs to the job scheduler (SLURM in our case) for each process call. Recall that the header for an SBATCH job script looks like this:
 
@@ -783,4 +788,185 @@ When we run nextflow on the HPC, what it is doing is submitting individual jobs 
 blah blah command here
 ```
 
-The parameters
+The parameters specified in the SBATCH header can be controlled in nextflow using the `cpus`, `memory`, and `time` directives in the process block. For example, if we wanted to specify that the `COUNT_LINES` process should use 2 CPUs, 4GB of memory, and 30 minutes of time, we would modify the process block like this:
+
+```groovy
+process COUNT_LINES {
+    cpus 2
+    memory '4 GB'
+    time '30 min'
+    ...
+}
+```
+
+However, you may instead see these resources specified in the configuration file, so that users can modify them more easily. For example, in the `nextflow.config` file, you might see something like this:
+
+```groovy
+process {
+    withName: COUNT_LINES {
+        cpus = 2
+        memory = '4 GB'
+        time = '30 min'
+    }
+}
+```
+
+Or it could be specified as a parameter that the user can set on the command line:
+
+```groovy
+params {
+    count_lines_cpus = 2
+    count_words_cpus = 2
+}
+```
+
+And then when the user runs the workflow, they can run it with the option `--count_lines_cpus = 4` if they want 4 cpus instead.
+
+Something not typically specified are things specific to an HPC, such as what queue/partition to use. Sometimes, institutions will provide a default configuration file that users can include when they run nextflow on a particular compute environment. These configurations can be found on the [nf-core config repository](https://nf-co.re/configs/). We have written a config file for the cannon cluster named `cannon.config`. If you are using O2, you can read [HMSRC's documentation](https://harvardmed.atlassian.net/wiki/spaces/O2/pages/2971664388/Nextflow+nf-core+on+O2) on running nextflow on the O2 cluster. 
+
+To include any of the institutional configs in a non-nf-core workflow, you can add the following to your `nextflow.config` file:
+
+```groovy
+includeConfig 'https://raw.githubusercontent.com/nf-core/configs/master/nextflow.config'
+```
+
+This will include all institutional configs in that file. You can then activate the institutional config of your choice, in our case cannon, by using the `-profile` option. So your nextflow command will look like this:
+
+```bash
+nextflow run main.nf -profile cannon
+```
+
+??? question "What is nf-core?"
+
+    nf-core is a community curated and maintained set of scientific pipelines built using Nextflow, as well as relevant tooling and guidelines that promote open development, testing, and peer review. If you use a common bioinformatics tool or analysis, it is likely there already is a nf-core module or pipeline already built for it. If you want to learn more about finding and running nf-core pipelines, see [this tutorial](https://training.nextflow.io/latest/hello_nf-core/).
+
+### Tips for running on the cluster
+
+When you run nextflow on the cluster vs on your local machine (or in local mode), it behaves a bit differently. When running on your local machine, it uses all the resources/cpus/RAM of your machine to run the jobs. Everything is running on the same computer, sharing the same resources. However, when running on the cluster, each process call is submitted as a separate job to the job scheduler. In this way, each job will have its own resources allocated to it.
+
+**Run the head job in an sbatch script**
+
+The process that orchestrates all these job submissions and figures out where each file is in the pipeline is called the "head job". This job needs to exist for the entire duration of the pipeline, or else the "child jobs" will not be submitted. Therefore, when running a production-level nextflow workflow on the cluster, we recommend launching this job in an sbatch script rather than an interactive session. The head job typically does not need more than 1 core or a large amount of memory (8GB is usually sufficient). 
+
+Here is an example of a job submission script for the head job:
+
+```bash
+#!/bin/bash
+#SBATCH -c 1                # Number of cores (-c)
+#SBATCH -t 0-02:00          # Runtime in D-HH:MM, minimum of 10 minutes
+#SBATCH -p shared           # Partition to submit to
+#SBATCH --mem=8G           # Memory pool for all cores (see also --mem-per-cpu)
+#SBATCH -o nf_job_%j.out    # File to which STDOUT will be written, including job ID
+ 
+# need to load the java & python modules
+module load jdk
+module load python
+
+# optionally, load your nextflow conda environment using the conda
+source activate nextflow
+
+# Run nextflow
+nextflow run main.nf -profile cannon
+```
+
+There are two important parameters for this submission. The first, is the length of time. You want to overestimate how long this pipeline will take so that the job does not get pre-maturely killed by the scheduler. The second is the partition. You want to make sure that you submit to a non-preemtable partition so that your head job never gets canceled/interrupted. `shared` is a good choice, or `intermediate` if you anticipate a very long-running pipeline (>3 days). Do not use `serial-requeue` or `test`. 
+
+**Make your work directory in netscratch**
+
+The other thing to keep in mind when running lots of nextflow runs or one big nextflow run is that the work directory can become quite large due to the large number of intermediate files commonly generated by biological workflows. Therefore, it is best practice to set your work directory to a scratch directory on the HPC, such as `/n/netscratch/lab_name/Lab/your_username/nextflow_work`. You can do this by adding the following line to your `nextflow.config` file:
+
+```groovy
+workDir = '/n/netscratch/lab_name/Lab/your_username/nextflow_work'
+```
+
+**Use singularity containers if possible**
+
+Some workflow will be written with the option of using conda, singularity, or docker as a way to manage software environments. On the cannon cluster, we recommend running nextflow with singularity containers if possible. Conda containers can take a while to generate and may not always resolve, leading to frustrating failures. Docker containers cannot be run on the cluster due to permission issues. Workflows which have singularity as an option will typically have the following in their `nextflow.config` file:
+
+```groovy
+profiles {
+    singularity {
+        singularity.enabled = true
+        singularity.autoMounts = true
+    }   
+}
+```
+
+In which case, you will run the workflow with the `-profile singularity` option. You can combine multiple profiles together using the `,`. In the below code block, we run nextflow using both the institutional cannon config as well as the singularity profile:
+
+```bash
+nextflow run main.nf -profile singularity,cannon
+```
+
+By default, your singularity cache directory is your home directory, but if you pull many singularity containers, that could fill up. It may also be useful to set your 
+
+## Creating your own config files
+
+There are a few reasons why you might want to create your own config files rather than edit the default `nextflow.config` that comes with a third-party nextflow pipeline you find. If you are trying to run nextflow on an HPC that is not listed in the nf-core config repository, you can create your own custom config file that specifies the queue/partition and other settings. You might have specific resource use requirements for different batches of your data, such as a test run with small data vs a production run with the full data, and you want to be able to switch your settings easily and keep track of which settings goes with which run. 
+
+You can create a config file and name it anything you want. As an example, let's create a config file that will help us run our workflow on the cannon cluster. In writing *groovy* syntax, comments are preceded by `//`. So in our `my_config.config` file, we can write the following:
+
+```groovy
+// include institutional config
+includeConfig 'https://raw.githubusercontent.com/nf-core/configs/master/nextflow.config'
+
+// make work directory on scratch
+workDir = '/netscratch/lab_name/Lab/your_username/nextflow_work'
+```
+
+Now, when we run nextflow, we can include this config file using the `-c` option:
+
+```bash
+nextflow run main.nf -c my_config.config -profile cannon,singularity
+```
+
+## Running a demo workflow on the HPC
+
+Using everything we've learned we will now run a demo workflow from nf-core on the HPC using an sbatch script. Here is the script use:
+
+```bash
+#!/bin/bash
+#SBATCH -c 1                # Number of cores (-c)
+#SBATCH -t 0-01:00          # Runtime in D-HH:MM, minimum of 10 minutes
+#SBATCH -p shared           # Partition to submit to
+#SBATCH --mem=8G           # Memory pool for all cores (see also --mem-per-cpu)
+#SBATCH -o nf_job_%j.out    # File to which STDOUT will be written, including job ID
+ 
+# need to load the java & python modules
+module load jdk
+module load python
+
+# Run nextflow
+nextflow run nf-core/demo -profile cannon,test,singularity -with-report -with-timeline -with-trace -with-dag results/pipeline_info/pipeline_dag.svg
+```
+
+??? example "Command breakdown"
+
+    | Command line option                          | Description |
+    | -------------------------------------------  | ----------- |
+    | `nextflow run`                                  | The call to the nextflow program |
+    | `nf-core/demo`                                  | The name of the workflow to run. Because this is an nf-core workflow, nextflow will automatically download it from GitHub. |
+    | `-profile cannon,test,singularity`              | The profiles to use. `cannon` is the institutional config for the cannon cluster, `test` is a profile that comes with the demo workflow, and `singularity` is the environment managemenet we want | 
+    | `-with-report`                                  | Generate an execution report (html) |
+    | `-with-timeline`                                | Generate an execution timeline (html) |
+    | `-with-trace`                                   | Generate an execution trace (tab delimited file) |
+    | `-with-dag results/pipeline_info/pipeline_dag.svg` | Generate a DAG of the workflow in svg format|
+
+
+The `demo` workflow is a simple workflow that performs QC and adapter trimming on some small fastq files. The `test` profile is included because it uses small test data that comes with the workflow, so we don't have to provide our own input files. Normally, this runs with an input samplesheet.
+
+I will save this script as `run_nf_demo.sbatch` and then submit it to the cluster using the command:
+
+```bash
+sbatch run_nf_demo.sbatch
+``` 
+
+While it is running, run `queue --me` to see the jobs that you and nextflow are submitting. Let's explore the results directory, the work directory, the `.nextflow.log` file, and the a work directory so you can see how everything looks after running a "real" workflow on the HPC.
+
+## Looking at 3rd party workflows
+
+If we have time, let's look at some real 3rd party workflows.
+
+* [The PacBio HiFi 16S Workflow](https://github.com/PacificBiosciences/HiFi-16S-workflow)
+* [Oxford Nanopore Epi2Me transcriptomes workflow](https://github.com/epi2me-labs/wf-transcriptomes)
+
