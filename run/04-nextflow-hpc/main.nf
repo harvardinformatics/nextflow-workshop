@@ -4,9 +4,6 @@
 params.samplesheet = "samplesheet.txt"
 params.input_dir = "data"
 params.outdir = "results"
-params.run_lines = true
-params.run_words = true
-params.run_aggregate = true
 
 /*
  * A process to count lines in text files
