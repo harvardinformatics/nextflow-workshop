@@ -135,8 +135,8 @@ workflow {
     samples_ch = Channel
         .fromPath(params.samplesheet)
         .splitText()
-        .map { it.trim() }
-        .filter { it != "" }  // Remove empty lines
+        .map { sample -> sample.trim() }
+        .filter { sample -> sample != "" }  // Remove empty lines
         .map { sample -> tuple(sample, file("${params.input_dir}/${sample}.txt")) }
     
     // Show what samples we're processing

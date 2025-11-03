@@ -13,7 +13,7 @@ params.run_aggregate = true
  * for a list of samples provided in a sample sheet.
  */
 process COUNT_LINES {
-    tag "$sample_id"
+
 
     publishDir "${params.outdir}", mode: 'copy'
 
@@ -39,7 +39,7 @@ process COUNT_LINES {
  * for a list of samples provided in a sample sheet.
  */
 process COUNT_WORDS {
-    tag "$sample_id"
+
     
     publishDir "${params.outdir}", mode: 'copy'
 
@@ -65,7 +65,7 @@ process COUNT_WORDS {
  * for each sample into a summary file.
  */
 process COMBINE_COUNTS {
-    tag "$sample_id"
+
     
     publishDir "${params.outdir}", mode: 'copy'
 
@@ -142,8 +142,8 @@ workflow {
     samples_ch = Channel
         .fromPath(params.samplesheet)
         .splitText()
-        .map { it.trim() }
-        .filter { it != "" }  // Remove empty lines
+        .map { sample -> sample.trim() }
+        .filter { sample -> sample != "" }  // Remove empty lines
         .map { sample -> tuple(sample, file("${params.input_dir}/${sample}.txt")) }
     
     // Show what samples we're processing

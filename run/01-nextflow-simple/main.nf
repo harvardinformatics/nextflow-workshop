@@ -99,7 +99,7 @@ workflow {
     samples_ch = Channel
         .fromPath(params.samplesheet)
         .splitText()
-        .map { it.trim() }
+        .map { sample -> sample.trim() }
         .map { sample -> tuple(sample, file("${params.input_dir}/${sample}.txt")) }
     
     // Run processes
