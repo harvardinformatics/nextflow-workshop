@@ -223,11 +223,11 @@ process COUNT_LINES {
     tuple val(sample_name), path(input_file)
 
     output:
-    tuple val(sample_name), path("${input_file.baseName}.lines")
+    tuple val(sample_name), path("${sample_name}.lines")
 
     script:
     """
-    wc -l ${input_file} | awk '{print \$1}' > ${input_file.baseName}.lines
+    wc -l ${input_file} | awk '{print \$1}' > ${sample_name}.lines
     """
 }
 
@@ -246,8 +246,6 @@ workflow {
 ```
 
 Compare the two `results.view()` outputs from the two scripts. Representative outputs are below:
-
-```
 
 The `results.view()` line should show something like this:
 
@@ -270,3 +268,54 @@ Second script:
 
 In the second script the channel output of `COUNT_LINES` is a tuple where the first item is the sample name and the second item is the path to the output file. This is because we defined both the input and output of the process as tuples, so that we can keep track of which sample corresponds to which output file. In the first script we only passed in the file paths, so the output is just the file paths. The benefit of using tuples is that we can keep track of metadata (such as sample names, conditions, etc.) without relying on file names alone. This means that downstream channel operations and processes can use this metadata without having to parse a file name to get at the information. 
 
+Now let's do a more detailed breakdown of the process definition. 
+
+A process typically consists of the following sections: 
+
+* `input:` defines the inputs to the process. A process must contain at least one input section and each input needs to have a *qualifier* and a *name*. Common qualifiers are `path`, which causes a file to be staged properly, and `val`, which is some value that can be accessed in the script section. Input elements can be grouped into `tuple`s to pass multiple items together.
+    * In our example, we have a `val` input called `sample_name` and a `path` input called `input_file`, grouped into a tuple. Notice how we don't need to specify how the `input_file` is named or created. This is handled by the channel that is passed to the process. In general, avoid referencing specific file paths or patterns in the process input section and in your script section use the input variable name defined in your input section. **This is different than how Snakemake works!**
+* `output:` defines the outputs of the process. Similar to inputs, each output needs a *qualifier* and a *name*. Outputs can have dynamic names using the `${}` syntax, where the value inside the curly braces typically refers to an input variable.
+    * In our `path` output, we use `${}` to access the value stored in `sample_name` from the input and pass it to the the output file name. 
+    * The metadata `sample_name` is passed unchanged from input to output using the `val` qualifier. Combined with `tuple`, the metadata is preserved along with the output file. 
+    * Although we have defined a unique output file name for each sample, Nextflow will still work well if we do not use dynamic output file names. This is because files produced by different tasks reside in their own work directory so they will not overwrite each other. However, if we want to publish the output files to a common directory, it is easier to do so if the output files have unique names.
+* `script:` defines the the script executed by the process and is typically a bash script enclosed in triple quotes (`"""`). To access nextflow variables/pipeline parameters inside the script, use the `${}` syntax. If you need to access a literal dollar sign (`$`), such as in `awk` commands, you need to escape it using a single backslash (`\`), e.g. `\$1`. If you need to access system variables such as `$HOME`, you need to escape the dollar sign with two backslashes (`\\`), e.g. `\\$HOME`.
+    * In our example, we use the `wc -l` command to count the number of lines in the input file and redirect the output to a new file named `${sample_name}.lines`. Another way to do this is to create the output file name beforehand using groovy syntax, e.g. `def output_file = "${sample_name}.lines"`, and then use `${output_file}` in the script section. This keeps the script section cleaner and easier to read.
+    ```nextflow     
+    script:
+    def output_file = "${sample_name}.lines
+    """
+    wc -l ${input_file} | awk '{print \$1}' > ${output_file}
+    """
+    ```
+
+Just because we have the process, doesn't mean that it will be run. We need to call the process like a function in the `workflow` definition section. In the `workflow` section we create the `samples` channel as before, but then instead of just viewing the channel, we pass it to the `COUNT_LINES` process. You can think of a `COUNT_LINES` as a function that expects an input channel consisting of a tuple of a val and a path, and returns an output channel consisting another tuple of a val and a path. Passing the correct channel to the process is how we "call" the process to be executed. The output of the process is another channel, which we assign to the variable `results`. Finally, we view the `results` channel to see the output of the process.
+
+### Testing your workflow
+
+#### Checking for syntax errors with `nextflow lint`
+
+Now that we have a working process and workflow definition, we should test it to see if it works as expected. As you are writing your pipeline, it can be useful to use the `nextflow lint` command to check for syntax errors and formatting issues. We have a sample erroneous Nextflow script called `errors.nf` that you can use to test the linting command.
+
+Run the following command in your terminal:
+
+```bash
+nextflow lint errors.nf
+```
+
+**Exercise:** Run `nextflow lint errors.nf` and identify the errors in the script. Once there are no more errors, try running `nextflow lint errors.nf -format` to automatically fix the formatting issues in the script. 
+
+#### Previewing the workflow DAG
+
+You can preview the workflow DAG directly in the VSCode editor if you have the Nextflow extension installed. Open the `04_count_lines.nf` file and click on the "Preview DAG" button in the top of the `workflow` section. This will open a window showing a DAG of the workflow. 
+
+You can also generate a DAG without running the workflow by using the `-preview` and `-with-dag` flags when running the workflow. Run the following command in your terminal:
+
+```bash
+nextflow run 04_count_lines.nf -preview -with-dag workflow_dag.dot
+```
+
+!!! note "Using .dot files instead of .svg or .png"
+
+    We're saving these as plaintext dot files because I don't want to take up time transferring the image files. Instead, I am going to use an online dot file viewer to visualize the DAGs. [Link](https://dreampuf.github.io/GraphvizOnline/){ target="_blank" }
+
+You'll notice that this command generates a file that includes the channel names and operators, which can be useful for debugging, but it can also make the DAG cluttered and hard to read. To generate a cleaner DAG without channel names and operators, you can use the `-n` flag:
