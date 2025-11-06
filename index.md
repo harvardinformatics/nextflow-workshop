@@ -27,7 +27,7 @@ While we do not require attendees to have previous experience writing Nextflow s
 
 ## Getting Started
 
-This workshop will use files hosted on a [github repository :octicons-link-external-24:](https://github.com/harvardinformatics/nextflow-workshop){ target="_blank" } that you will need to download to the Cannon cluster. You will then be editing these files during the workshop using VSCode with the Nextflow extension installed. In order to edit these files and run them on the cluster, you will tunnel VSCode to the cluster using the Remote - SSH extension. You'll have to install the extension in the cluster codespace.
+This workshop will use files hosted on a [github repository :octicons-link-external-24:](https://github.com/harvardinformatics/nextflow-workshop){ target="_blank" } that you will need to download to the Cannon cluster. You will then be editing these files during the workshop using VSCode with the Nextflow extension installed. In order to edit these files and run them on the cluster, you will ssh VSCode to the cluster using the Remote - SSH extension. You'll have to install the extension in the cluster codespace.
 
 ### Downloading the workshop
 
@@ -71,7 +71,7 @@ cd nextflow-workshop-main
 
 #### Using the Nextflow self-installer
 
-We recommend installing nextflow globally as a binary executable and putting it in your PATH. Nextflow a software that runs on Java. Before installing Nextflow on the cluster, make sure to load the Java module. Navigate to where you want to install nextflow, such as your home directory, a software directory in your lab, or somewhere else in your PATH. 
+We recommend installing nextflow globally using their self-installer script and putting it in your PATH. Nextflow a software that runs on Java. Before installing Nextflow on the cluster, make sure to load the Java module. Navigate to where you want to install nextflow, such as your home directory, a software directory in your lab, or somewhere else in your PATH. 
 
 ```bash
 module load jdk
@@ -134,10 +134,34 @@ During this workshop we will be writing scripts and editing text files on the cl
 
 1. Download and install [VSCode :octicons-link-external-24:](https://code.visualstudio.com/){ target="_blank" } if you don't have it already.
 2. Install the [Remote - SSH extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-ssh){ target="_blank" } and the [Remote Explorer extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-explorer){ target="_blank" } in VSCode.
-4. Follow the instructions on the [FASRC docs](https://docs.rc.fas.harvard.edu/kb/vscode-remote-development-via-ssh-or-tunnel/){ target="_blank" } to connect to the Cannon cluster. We recomment using method 2 (tunnel) or 3 (ssh). 
+4. Follow the instructions on the [FASRC docs](https://docs.rc.fas.harvard.edu/kb/vscode-remote-development-via-ssh-or-tunnel/){ target="_blank" } to connect to the Cannon cluster. We recomment using method 3 (ssh). 
 5. Once connected to the cluster, install the [Nextflow extension](https://marketplace.visualstudio.com/items?itemName=nextflow.nextflow){ target="_blank" } in the cluster codespace.
 6. Use File > Open Folder... to open the `nextflow-workshop` directory you downloaded earlier.
+7. If you are using the conda installation method for Nextflow, be sure to activate your conda environment using the terminal.
 
+### Confirm that the setup is working/troubleshooting setup
+
+When you have completed the above steps, you should at some point see that there is a nextflow icon on the left side of VSCode
+
+![Nextflow icon in VSCode](img/nextflow_icon_vscode.png)
+
+If you do not see the above, confirm that you are using VSCode connected to the cluster and that you have installed the Nextflow extension in the cluster codespace. Cluster extensions are separate from your local extensions.
+
+You should also be able to open up a `.nf` file and see syntax highlighting and a "Preview DAG" button at the top of the workflow section of the script. 
+
+![Nextflow preview DAG](img/nextflow_preview_dag.png)
+
+If you do not see the above but you do have the Nextflow extension installed and activated, you may be seeing an error on the bottom right of your VSCode that says something like "Java 17 or later is required to use the Nextflow language server". Here's how to fix that.
+
+**If you did the auto-installer**, make sure you activate java using the command `module load jdk`. Then open the command palette (Cmd+Shift+P on Mac, Ctrl+Shift+P on Windows/Linux) and type "Nextflow: Restart Language Server". 
+
+**If you used conda** to install nextflow, go to your settings (File > Preferences > Settings) and search for "Nextflow". In your terminal, make sure you have activated your nextflow conda environment and run the command `echo $JAVA_HOME` to get the path to your java installation. Copy the **absolute path** to the Java: Home setting for the Nextflow extension PLUS `/lib/jvm`. For example if your `JAVA_HOME` is `/n/home14/username/.conda/envs/nf-env/`, you want to copy `/n/home14/username/.conda/envs/nf-env/lib/jvm` into the Java: Home setting. 
+
+![Nextflow Java Home setting](img/nextflow_java_vscode.png)
+
+You should then see a little popup on the bottom right that says "Downloaded Nextflow language server".
+
+![Nextflow language server downloaded](img/nextflow_server_vscode.png)
 
 ## Workshop content
 
