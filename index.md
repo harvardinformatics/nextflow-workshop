@@ -2,7 +2,6 @@
 title: "[Workshop] Introduction to Nextflow"
 authors:
     - Lei Ma
-    - Danielle Khost
 author_header: Workshop Developers
 ---
 

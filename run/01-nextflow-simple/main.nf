@@ -49,6 +49,8 @@ process COUNT_WORDS {
 process COMBINE_COUNTS {
     conda "conda-forge::gawk=5.1.0"
     
+    publishDir "${params.outdir}", mode: 'copy'
+
     input:
     tuple val(sample_id), path(lines_file), path(words_file)
     

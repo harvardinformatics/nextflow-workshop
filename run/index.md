@@ -1,7 +1,6 @@
 ---
 title: "[Workshop] Running Nextflow Workflows"
 authors:
-    - Gregg Thomas
     - Lei Ma
 author_header: Workshop Developers
 ---
@@ -10,9 +9,13 @@ author_header: Workshop Developers
 
 ## Introduction
 
-This section will introduce people to the concept of workflow languages and their use. 
+Welcome to the first part of our workshop on workflow managers with Nextflow. This is day 1 or 2 where we will focus on learning how to install, run, and troubleshoot pre-existing Nextflow pipelines. We'll touch on the basics of Nextflow syntax and terminology, configuration options, and how to run Nextflow on the FASRC Cannon HPC. 
 
-This section should take ~15 minutes and is mostly a presentation. 
+If you haven't already, please follow the [Getting Started](../index.md) section to download the workshop materials and install Nextflow, as well as choose a text editor to work with on the cluster.
+
+!!! warning "Run `git pull` at the beginning of the workshop"
+
+    Because we have been making changes to the workshop content, if you have cloned the [workshop repository :octicons-link-external-24:](https://github.com/harvardinformatics/nextflow-workshop){ target="_blank" }  before today, please run `git pull` in the root directory of the repository to make sure you have the latest version of the materials. If you downloaded the materials as a zip file, please redownload the zip file and extract it again.
 
 ### Terminology
 
@@ -166,7 +169,7 @@ When you run Nextflow, you create a head job that manages the workflow and submi
 
 ## Run nextflow-simple
 
-In this section, we will be running a small nextflow workflow that converts a list of greetings into separate files of uppercase greetings. Navigiate to the `01-nextflow-simple` folder and open the `README.md` file. This is what a typical README file for a third-party nextflow workflow might look like. It has a description of the inputs and outputs of the pipeline, installation instructions, and usage instructions. 
+In this section, we will be running a small nextflow workflow that counts the number of lines and words in a set of text files and creates some summary documents for each sample. Navigiate to the `01-nextflow-simple` folder and open the `README.md` file. This is what a typical README file for a third-party nextflow workflow might look like. It has a description of the inputs and outputs of the pipeline, installation instructions, and usage instructions. 
 
 ??? abstract "Documentation for 01-nextflow-simple"
 
@@ -499,7 +502,7 @@ executor >  local (7)
 
 ## Using Config files
 
-!!! alert
+!!! warning
     We will now be switching our focus to configuration of nextflow runs, and using the directory `run/02-nextflow-config`. 
 
 Often times, you will find in the instructions for a nextflow workflow that you will need to provide a configuration file or some parameters. This is because the workflow author has made the workflow more flexible and customizable. In this version of the workflow, we have the same processes as before, but there are some additional files that the author has provided. The README.md file is also a bit different and contains more information on how to customize the workflow.
@@ -510,17 +513,17 @@ Let's take a brief digression into talking about software environments, which is
 
 Conda:
 
-* Package manager and environment management system
+* Package manager
 * Creates isolated environments with specific software versions
 * Primarily used for Python/R packages but supports many languages
-* Lightweight, shares system libraries
+* Already installed on the Cannon HPC
 
 Docker:
 
 * Containerization platform that packages applications with all dependencies
 * Creates isolated containers with complete operating system environments
 * Provides strong isolation and reproducibility
-* Requires Docker daemon to run
+* Cannot be run on the Cannon HPC
 
 Singularity:
 
@@ -559,23 +562,29 @@ The file `nextflow.config` contains lines that specify the default profile to us
 profiles {
     conda {
         conda.enabled = true
+        conda.channels = ['conda-forge', 'bioconda', 'defaults']
+        conda.useMamba = true
     }
     
     docker {
         docker.enabled = true
-        process {
-            container = 'ubuntu:20.04'
-        }
+    }
+    
+    singularity {
+        singularity.enabled = true
+        singularity.autoMounts = true
     }
 
- }
+}
 ```
 
-Let's first run the workflow using docker (the default):
+Let's first run the workflow using singularity:
 
 ```bash
-nextflow run main.nf
+nextflow run main.nf -profile singularity
 ```
+
+Nextflow will download the singularity container for cowpy and run the workflow using that container.
 
 Now let's run the workflow using conda:
 
@@ -618,32 +627,34 @@ Stringing multiple parameters together like this can get tedious, so there's a w
 
 ## Running nextflow with reporting
 
-When you run a nextflow workflow, you can generate various reports that summarize the execution of the workflow. These reports can be very useful for understanding the performance of your workflow and for debugging any issues that may arise. In this workflow, the author has configured the `nextflow.config` file to generate several reports by default. You can see these settings in the `nextflow.config` file:
+When you run a nextflow workflow, you can generate various reports that summarize the execution of the workflow. These reports can be very useful for understanding the performance of your workflow and for debugging any issues that may arise. In this workflow, the author has configured the `nextflow.config` file to be able generate several reports - you just need to enable each option. You can see these settings in the `nextflow.config` file:
 
 ```groovy
 timeline {
-    enabled = true
     overwrite = true
     file = "${params.outdir}/pipeline_info/execution_timeline.html"
 }
 
 report {
-    enabled = true
     overwrite = true
     file = "${params.outdir}/pipeline_info/execution_report.html"
 }
 
 trace {
-    enabled = true
     overwrite = true
     file = "${params.outdir}/pipeline_info/execution_trace.txt"
     fields = 'task_id,hash,native_id,process,tag,name,status,exit,module,container,cpus,time,disk,memory,attempt,submit,start,complete,duration,realtime,queue,%cpu,%mem,rss,vmem,peak_rss,peak_vmem,rchar,wchar,syscr,syscw,read_bytes,write_bytes'
 }
 
 dag {
-    enabled = true
     file = "${params.outdir}/pipeline_info/pipeline_dag.svg"
 }
+```
+
+To generate these reports, run the workflow with the following command:
+
+```bash
+nextflow run main.nf -profile conda -with-report -with-timeline -with-trace -with-dag
 ```
 
 Let's take a look at the `results/pipeline_info` directory now. You should see a few files describing the latest run of the workflow. Download the html files to your local machine by right clicking it and then open them in a web browser to see the report and timeline.
@@ -696,7 +707,7 @@ Lets go to the work directory in your error message and run `ls -al` to see the 
 
 Examine the output of the workflow and the `samplesheet.txt` file. Did the workflow run successfully? You may have noticed that there are empty output files for sample3, which is listed in the samplesheet file, but not present in the data folder. And now the `aggregate-summary.tsv` file is messed up because the `sample3.summary` file is malformed. What's going on in the work directory of sample3? To view the work directory for sample3, we need to use the command below:
 
-```
+```bash
 nextflow log RUN_NAME -f "name,process,exit,hash"
 ```
 
@@ -734,7 +745,7 @@ Now, if you rerun the workflow, it should fail when it encounters the missing in
 We can run this with a fixed samplesheet using the command:
 
 ```bash
-nextflow run main.nf --samplesheet solutions/samplesheet_fixed.txt -resume
+nextflow run main.nf -profile singularity --samplesheet solutions/samplesheet_fixed.txt -resume
 ```
 
 ### Publishing results
