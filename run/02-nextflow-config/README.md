@@ -77,7 +77,7 @@ nextflow run main.nf --samplesheet your_samplesheet.txt --input_dir your_data_di
 
 ### Configuration
 
-This pipeline can be run with either `conda` or `singularity`. You must choose one of the following options: To change to `conda` mode, run using the `-profile conda` option. To change to singularity mode, run using the `-profile singularity` option. 
+This pipeline can be run with either `conda`, `docker`, or `singularity`, with `singularity` as the default. To change to `conda` mode, run using the `-profile conda` option. To change to docker mode, run using the `-profile docker` option. 
 
 You can enable or disable specific steps using parameters:
 
@@ -95,3 +95,4 @@ Or use the provided parameter json files `params-minimal.json` or `params.json`.
 - Aggregated summary table: `results/aggregate-summary.tsv`
 - Cowpy output file: `results/cowpy-output.txt`
 - Pipeline info reports: `results/pipeline_info/` (timeline, report, trace, dag)
+   - To enable reports, use the `--with-report`, `--with-timeline`, `--with-trace`, and `--with-dag` options.

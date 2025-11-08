@@ -165,8 +165,6 @@ Nextflow is a workflow language that is based on the Groovy programming language
 
 When you run Nextflow, you create a head job that manages the workflow and submits jobs to the local machine or a job scheduler. Each process is run in its own isolated environment, which can be a docker or singularity container, a conda environment, or just the local environment. This means that each process can have its own dependencies and versions of software without interfering with other processes.
 
-<!-- Need image diagram of head job submitting child jobs-->
-
 ## Run nextflow-simple
 
 In this section, we will be running a small nextflow workflow that counts the number of lines and words in a set of text files and creates some summary documents for each sample. Navigiate to the `01-nextflow-simple` folder and open the `README.md` file. This is what a typical README file for a third-party nextflow workflow might look like. It has a description of the inputs and outputs of the pipeline, installation instructions, and usage instructions. 
@@ -254,9 +252,15 @@ In this section, we will be running a small nextflow workflow that counts the nu
     - Aggregated summary table: `results/aggregate-summary.tsv`
 
 
+For the next few sections, we will be running nextflow on your log-in node. This is generally not recommended, but because the workflow is small and quick, it should be fine. Running it on the login node also known as using a **local executor** and so nextflow will behave much like if you were running it on your own laptop.
+
+In the below diagram, you can see that when running nextflow in local executor mode, nextflow creates a head job that manages the workflow and spawns processes as child jobs. Each child job will try to take as much memory and CPU resources as it needs or is available. In a later section, we will see how this works when running nextflow on an HPC with the SLURM executor. 
+
+![Nextflow local executor](../img/local_executor.svg)
+
 ### The process definition
 
-Now let's take a quick look at the `main.nf` file in this folder. We won't go over too much of the details, but we do want to understand the general structure of a nextflow file. Nextflow scripts have two main components, **processes** and the **workflow**. Let's first look at the **process** block. 
+Now let's take a look at the `main.nf` file in this folder. We won't go over too much of the details, but we do want to understand the general structure of a nextflow file. Nextflow scripts have two main components, **processes** and the **workflow**. Let's first look at the **process** block. 
 
 ```groovy title="main.nf" linenums="1"
 #!/usr/bin/env nextflow
@@ -534,7 +538,7 @@ Singularity:
 
 Let's look at the `cowpy` process for how depencies are specified:
 
-```groovy
+```groovy title="02-nextflow-config/main.nf" linenums="1"
 process COWPY {
     publishDir "${params.outdir}", mode: 'copy'
     container 'community.wave.seqera.io/library/pip_cowpy:8b70095d527cd773'
@@ -556,27 +560,7 @@ process COWPY {
 
 In this process, you can see that both a `container` and a `conda` environment are specified. This means that the user can choose to run the workflow using either conda or docker/singularity. The container link is a pre-built wave container (like a docker container) that has cowpy installed, while the conda line specifies that cowpy version 1.1.5 should be installed from the conda-forge channel.
 
-The file `nextflow.config` contains lines that specify the default profile to use (docker) and the conda environment file to use if the user chooses the conda profile. The user can switch between these two options by using the `-profile` flag when running nextflow.
-
-```groovy
-profiles {
-    conda {
-        conda.enabled = true
-        conda.channels = ['conda-forge', 'bioconda', 'defaults']
-        conda.useMamba = true
-    }
-    
-    docker {
-        docker.enabled = true
-    }
-    
-    singularity {
-        singularity.enabled = true
-        singularity.autoMounts = true
-    }
-
-}
-```
+The file `nextflow.config` contains lines that specify the default profile to use (docker) and the conda environment file to use if the user chooses the conda profile. The user can switch between the profiles using the `-profile` flag when running nextflow.
 
 Let's first run the workflow using singularity:
 
@@ -584,7 +568,7 @@ Let's first run the workflow using singularity:
 nextflow run main.nf -profile singularity
 ```
 
-Nextflow will download the singularity container for cowpy and run the workflow using that container.
+Nextflow will download the singularity container for cowpy and run the workflow using that container. The singularity container will be cached in the `singularity` directory in the pipeline work directory by default. But it is recommended to set the `singularity.cacheDir` parameter to some centralized location so it can be used for other workflows. 
 
 Now let's run the workflow using conda:
 
@@ -601,7 +585,7 @@ When you run a nextflow workflow, any parameters that control how nextflow runs 
 For example, you can try running the workflow with the following command:
 
 ```bash
-nextflow run main.nf --samplesheet other_samplesheet.txt --input_dir data2 --outdir results2
+nextflow run main.nf -profile conda --samplesheet other_samplesheet.txt --input_dir data2 --outdir results2
 ```
 
 By using the `--samplesheet`, `--input_dir`, and `--outdir` parameters, we have changed the input/output locations and changed the samplesheet parameter. If you look at the `main.nf` file, you can see that the parameters have defaults defined at the top of the file:
@@ -745,7 +729,7 @@ Now, if you rerun the workflow, it should fail when it encounters the missing in
 We can run this with a fixed samplesheet using the command:
 
 ```bash
-nextflow run main.nf -profile singularity --samplesheet solutions/samplesheet_fixed.txt -resume
+nextflow run main.nf -with-conda --samplesheet solutions/samplesheet_fixed.txt -resume
 ```
 
 ### Publishing results
@@ -851,9 +835,26 @@ nextflow run main.nf -profile cannon
 
     nf-core is a community curated and maintained set of scientific pipelines built using Nextflow, as well as relevant tooling and guidelines that promote open development, testing, and peer review. If you use a common bioinformatics tool or analysis, it is likely there already is a nf-core module or pipeline already built for it. If you want to learn more about finding and running nf-core pipelines, see [this tutorial](https://training.nextflow.io/latest/hello_nf-core/).
 
-### Tips for running on the cluster
+### Best practices for running on the cluster
 
 When you run nextflow on the cluster vs on your local machine (or in local mode), it behaves a bit differently. When running on your local machine, it uses all the resources/cpus/RAM of your machine to run the jobs. Everything is running on the same computer, sharing the same resources. However, when running on the cluster, each process call is submitted as a separate job to the job scheduler. In this way, each job will have its own resources allocated to it.
+
+Below is a summary diagram of how nextflow runs on the HPC:
+
+### SLURM Executor Diagram
+
+<div>
+    <input type="checkbox" id="popup" style="display:none;">
+    <div class="backdrop" onclick="popup.checked=false;">
+      <label for="popup">
+        <img src="../img/slurm_executor.svg" class="fullimg">
+      </label>
+    </div>
+    <div class="caption">Click to view</div>
+    <label for="popup">
+      <center><img src="../img/slurm_executor.svg" style="cursor:pointer;"></center>
+    </label>
+</div>
 
 **Run the head job in an sbatch script**
 
@@ -882,11 +883,23 @@ nextflow run main.nf -profile cannon
 
 There are two important parameters for this submission. The first, is the length of time. You want to overestimate how long this pipeline will take so that the job does not get pre-maturely killed by the scheduler. The second is the partition. You want to make sure that you submit to a non-preemtable partition so that your head job never gets canceled/interrupted. `shared` is a good choice, or `intermediate` if you anticipate a very long-running pipeline (>3 days). Do not use `serial-requeue` or `test`. 
 
+## Make a custom config file for your cluster account
+
+There are a few reasons why you might want to create your own config files rather than edit the default `nextflow.config` that comes with a third-party nextflow pipeline you find. If you are trying to run nextflow on an HPC that is not listed in the nf-core config repository, you can create your own custom config file that specifies the queue/partition and other settings. You might have specific resource use requirements for different batches of your data, such as a test run with small data vs a production run with the full data, and you want to be able to switch your settings easily and keep track of which settings goes with which run. 
+
+You can create a config file and name it anything you want. As an example, let's create a config file that will help us run our workflow on the cannon cluster. In writing *groovy* syntax, comments are preceded by `//`. So in our `my_config.config` file, we can write the following:
+
+```groovy title="my_config.config"
+// include institutional configs
+includeConfig 'https://raw.githubusercontent.com/nf-core/configs/master/nextflow.config'
+```
+
 **Make your work directory in netscratch**
 
-The other thing to keep in mind when running lots of nextflow runs or one big nextflow run is that the work directory can become quite large due to the large number of intermediate files commonly generated by biological workflows. Therefore, it is best practice to set your work directory to a scratch directory on the HPC, such as `/n/netscratch/lab_name/Lab/your_username/nextflow_work`. You can do this by adding the following line to your `nextflow.config` file:
+The other thing to keep in mind when running lots of nextflow runs or one big nextflow run is that the work directory can become quite large due to the large number of intermediate files commonly generated by biological workflows. Therefore, it is best practice to set your work directory to a scratch directory on the HPC, such as `/n/netscratch/lab_name/Lab/your_username/nextflow_work`. You can do this by adding the following line to a custom config file for all your nextflow runs. Perhaps call it `my_config.config`:
 
-```groovy
+```groovy title="my_config.config"
+// put work directory on netscratch
 workDir = '/n/netscratch/lab_name/Lab/your_username/nextflow_work'
 ```
 
@@ -909,21 +922,14 @@ In which case, you will run the workflow with the `-profile singularity` option.
 nextflow run main.nf -profile singularity,cannon
 ```
 
-By default, your singularity cache directory is your home directory, but if you pull many singularity containers, that could fill up. It may also be useful to set your 
+By default, your singularity cache directory is your home directory, but if you pull many singularity containers, that could fill up. While you are editing your config, you can set the singularity cache directory to a centralized location
 
-## Creating your own config files
-
-There are a few reasons why you might want to create your own config files rather than edit the default `nextflow.config` that comes with a third-party nextflow pipeline you find. If you are trying to run nextflow on an HPC that is not listed in the nf-core config repository, you can create your own custom config file that specifies the queue/partition and other settings. You might have specific resource use requirements for different batches of your data, such as a test run with small data vs a production run with the full data, and you want to be able to switch your settings easily and keep track of which settings goes with which run. 
-
-You can create a config file and name it anything you want. As an example, let's create a config file that will help us run our workflow on the cannon cluster. In writing *groovy* syntax, comments are preceded by `//`. So in our `my_config.config` file, we can write the following:
-
-```groovy
-// include institutional config
-includeConfig 'https://raw.githubusercontent.com/nf-core/configs/master/nextflow.config'
-
-// make work directory on scratch
-workDir = '/netscratch/lab_name/Lab/your_username/nextflow_work'
+```groovy title="my_config.config"
+// put the singularity cache directory on netscratch
+singularity.cacheDir = '/n/netscratch/lab_name/Lab/your_username/singularity_cache'
 ```
+
+### Using the custom config file
 
 Now, when we run nextflow, we can include this config file using the `-c` option:
 
