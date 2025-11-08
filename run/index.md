@@ -939,7 +939,7 @@ nextflow run main.nf -c my_config.config -profile cannon,singularity
 
 ## Running a demo workflow on the HPC
 
-Using everything we've learned we will now run a demo workflow from nf-core on the HPC using an sbatch script. Here is the script use:
+Using everything we've learned we will now run a demo workflow from nf-core on the HPC using an sbatch script. Move to the `run/04-nextflow-hpc` directory. Edit the `my_config.config` file to point to your netscratch directories for the work directory and singularity cache directory. Then, modify the `demo.sh` sbatch script based on how you installed nextflow on the cluster. Finally, submit the job using `sbatch demo.sh`. Here is an example of what the sbatch script could look like:
 
 ```bash
 #!/bin/bash
@@ -953,8 +953,11 @@ Using everything we've learned we will now run a demo workflow from nf-core on t
 module load jdk
 module load python
 
+# optionally, load your nextflow conda environment using the conda
+# source activate nextflow
+
 # Run nextflow
-nextflow run nf-core/demo -profile cannon,test,singularity -with-report -with-timeline -with-trace -with-dag results/pipeline_info/pipeline_dag.svg
+nextflow run nextflow-io/rnaseq-nf -c my_config.config -profile cannon,singularity -with-report -with-timeline -with-trace -with-dag results/pipeline_info/pipeline_dag.svg
 ```
 
 ??? example "Command breakdown"
@@ -962,23 +965,20 @@ nextflow run nf-core/demo -profile cannon,test,singularity -with-report -with-ti
     | Command line option                          | Description |
     | -------------------------------------------  | ----------- |
     | `nextflow run`                                  | The call to the nextflow program |
-    | `nf-core/demo`                                  | The name of the workflow to run. Because this is an nf-core workflow, nextflow will automatically download it from GitHub. |
-    | `-profile cannon,test,singularity`              | The profiles to use. `cannon` is the institutional config for the cannon cluster, `test` is a profile that comes with the demo workflow, and `singularity` is the environment managemenet we want | 
+    | `nextflow-io/rnaseq-nf`                                  | The name of the workflow to run. You can run workflows directly from github |
+    | `-c my_config.config`                | The custom config file we made |
+    | `-profile cannon,singularity`              | The profiles to use. `cannon` is the institutional config for the cannon cluster and `singularity` is the environment managemenet we want | 
     | `-with-report`                                  | Generate an execution report (html) |
     | `-with-timeline`                                | Generate an execution timeline (html) |
     | `-with-trace`                                   | Generate an execution trace (tab delimited file) |
     | `-with-dag results/pipeline_info/pipeline_dag.svg` | Generate a DAG of the workflow in svg format|
 
 
-The `demo` workflow is a simple workflow that performs QC and adapter trimming on some small fastq files. The `test` profile is included because it uses small test data that comes with the workflow, so we don't have to provide our own input files. Normally, this runs with an input samplesheet.
+The `nextflow-io/rnaseq-nf` workflow is a simple workflow that performs QC, quantification on some small RNA-seq fastq files.
 
-I will save this script as `run_nf_demo.sbatch` and then submit it to the cluster using the command:
+While it is running, run `queue --me` to see the jobs that you and nextflow are submitting. It may take some time to download the singularity containers. 
 
-```bash
-sbatch run_nf_demo.sbatch
-``` 
-
-While it is running, run `queue --me` to see the jobs that you and nextflow are submitting. Let's explore the results directory, the work directory, the `.nextflow.log` file, and the a work directory so you can see how everything looks after running a "real" workflow on the HPC.
+Let's explore the results directory, the work directory, the `.nextflow.log` file, and the a work directory so you can see how everything looks after running a "real" workflow on the HPC.
 
 ## Looking at 3rd party workflows
 
@@ -986,4 +986,3 @@ If we have time, let's look at some real 3rd party workflows.
 
 * [The PacBio HiFi 16S Workflow](https://github.com/PacificBiosciences/HiFi-16S-workflow)
 * [Oxford Nanopore Epi2Me transcriptomes workflow](https://github.com/epi2me-labs/wf-transcriptomes)
-

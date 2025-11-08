@@ -10,4 +10,4 @@ module load jdk
 module load python
 
 # Run nextflow
-nextflow run nf-core/demo -profile cannon,test,singularity -with-report -with-timeline -with-trace -with-dag results/pipeline_info/pipeline_dag.svg
+nextflow run nextflow-io/rnaseq-nf -c my_config.config -profile cannon,singularity -with-report -with-timeline -with-trace -with-dag results/pipeline_info/pipeline_dag.svg
