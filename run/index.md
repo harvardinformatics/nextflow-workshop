@@ -986,3 +986,59 @@ If we have time, let's look at some real 3rd party workflows.
 
 * [The PacBio HiFi 16S Workflow](https://github.com/PacificBiosciences/HiFi-16S-workflow)
 * [Oxford Nanopore Epi2Me transcriptomes workflow](https://github.com/epi2me-labs/wf-transcriptomes)
+
+## End of Part 1
+
+Let us know if you have any question or feedback and we hope to see you on part 2!
+
+---
+
+<!-- --------------------------------- -->
+<!-- Page specfic CSS -->
+
+<style>
+    /* ----- */
+    /* Pop-up image viewer */    
+    .backdrop {
+        display: none;
+        position: fixed; top:0; left:0; width:100vw; height:100vh;
+        background: rgba(0,0,0,0.5);
+        z-index: 10;
+        text-align: center;
+        justify-content: center;
+        align-items: center;
+        display: flex;
+    }
+    #popup:not(:checked) ~ .backdrop {
+        display: none;
+    }
+    #popup:checked ~ .backdrop {
+        display: flex;
+    }
+    .fullimg {
+        max-width: 100vw;
+        max-height: 100vh;
+        margin: 0;
+        display: block;
+        background-color: #fff;
+    }
+    .caption {
+        color: #aaa;
+        font-style: italic;
+        font-size: 1.1em;
+        margin-bottom: 8px;
+        text-align: center;
+        letter-spacing: 0.02em;
+    }    
+
+    /* ----- */
+    /* Hide all 2nd-level navs */
+    .md-nav--secondary .md-nav__item .md-nav {
+        display: none !important;
+    }
+
+    /* Show when parent has .expanded class, which is added by js/collapse_toc.js */
+    .md-nav--secondary .md-nav__item.expanded > .md-nav {
+        display: block !important;
+    }    
+</style>
