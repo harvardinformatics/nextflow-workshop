@@ -50,14 +50,34 @@ process COMBINE_COUNTS {
     """
 }
 
+process AGGREGATE {
+
+    publishDir "results", mode: 'copy'
+
+    input:
+    path summary_files
+
+    output:
+    path "aggregate-summary.tsv"
+
+    script:
+    """    
+    echo -e "sample\tlines\twords" > aggregate-summary.tsv
+    
+    for sample in ${summary_files}; do
+        SAMPLE_NAME=\$(basename "\$sample" .summary)
+        LINES=\$(cat "\$sample" | grep -e "^lines\t" | cut -f2)
+        WORDS=\$(cat "\$sample" | grep -e "^words\t" | cut -f2)
+        echo -e "\$SAMPLE_NAME\t\$LINES\t\$WORDS" >> aggregate-summary.tsv
+    done
+    """
+}
+
 workflow {
     // Create a channel that reads in the samplesheet
     samples = Channel.fromPath('samplesheet.csv')
         .splitCsv(header:true)
         .map { row -> tuple(row.sampleName , file(row.filePath)) }
-    
-    // Print out each record in the samplesheet
-    samples.view()
 
     COUNT_LINES(samples)
 
@@ -66,5 +86,7 @@ workflow {
     joined_ch = COUNT_LINES.out.join(COUNT_WORDS.out)
 
     COMBINE_COUNTS(joined_ch)
+
+    AGGREGATE(COMBINE_COUNTS.out.collect{sample_name, summary_file -> summary_file})
 
 }

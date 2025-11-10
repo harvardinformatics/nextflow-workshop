@@ -159,7 +159,7 @@ There is a helpful github repo of common patterns using Nextflow channels that y
 
 **Bonus:** Experiment with removing the `file()` wrapper and see what happens. Maybe add an extra line to the samplesheet with a non-existent file path.
 
-### Writing your first Nextflow process
+### Adding process `COUNT_LINES` - Writing your first Nextflow process
 
 We will now use the workflow written in `03_splitCsv.nf` file going forward. Now that we have a channel that reads in the samplesheet, let's write our first Nextflow process to count the number of lines in each input file. 
 
@@ -194,7 +194,7 @@ A process typically consists of the following sections:
 * `output:` defines the outputs of the process. Similar to inputs, each output needs a *qualifier* and a *name*. Outputs can have dynamic names using the `${}` syntax, where the value inside the curly braces typically refers to an input variable.
     * In our `path` output, we use `${}` to access the value stored in `input_file` from the input and pass it to the the output file name. 
     * Because the `input_file` is a file object, we can use the `.baseName` method to get the file name without the extension. This way, if the input file is `/path/to/data/sample1.txt`, the output file will be named `sample1.lines`.
-* `script:` defines the the script executed by the process and is be default a bash script enclosed in triple quotes (`"""`). To access nextflow variables/pipeline parameters inside the script, use the `${}` syntax. If you need to access a literal dollar sign (`$`), such as in `awk` commands, you need to escape it using a single backslash (`\`), e.g. `\$1`. If you need to access system variables such as `$HOME`, you need to escape the dollar sign with two backslashes (`\\`), e.g. `\\$HOME`.
+* `script:` defines the the script executed by the process and is be default a bash script enclosed in triple quotes (`"""`). To access nextflow variables/pipeline parameters inside the script, use the `${}` syntax. If you need to access a literal dollar sign (`$`), such as in `awk` commands, you need to escape it using a single backslash (`\`), e.g. `\$1`. If you need to access system variables such as `$HOME`, you need to escape the dollar sign with a backslash (`\`), e.g. `\$HOME`.
     * In our example, we use the `wc -l` command to count the number of lines in the input file and redirect the output to a new file named `${input_file.baseName}.lines`. This has to match the `output` declaration or it will throw an error. 
 
 Alright, we've got the process defined, and we've got the workflow definition copied over from before. Let's try running the workflow with `nextflow run 04_count_lines.nf`.
@@ -332,13 +332,95 @@ In Snakemake, the input and output of a rule are always files, and the file name
 The next shell script we want to add to our Snakemake workflow is the `03_combine_counts.sh` script, which will combine the line and word counts for each sample into a single output file for each sample. This rule will take as an input the line and word count files for each sample. The final output will now be a `.summary` file for each sample. As before, we will need to edit both `workflow` as well as add the new `process COMBINE_COUNTS`. Additionally, we will have three inputs for the `COMBINE_COUNTS` process: the sample name, the line count file, and the word count file. 
 
 > **Exercise:** 
+>
 > 0. Copy the contents of `06_counting_with_metadata.nf` into a new file called `07_combine_counts.nf`. 
-> 1. Modify the `workflow` section to combine the output channels of `COUNT_LINES` and `COUNT_WORDS` the [join](https://nextflow.io/docs/latest/reference/operator.html#join) operator. Use the `.view()` operator to see what the output of the join looks like. You can save this channel to a new variable called `joined_ch`. 
+> 1. Modify the `workflow` section to combine the output channels of `COUNT_LINES` and `COUNT_WORDS` using the [join](https://nextflow.io/docs/latest/reference/operator.html#join) operator. Use the `.view()` operator to see what the output of the join looks like. You can save this channel to a new variable called `joined_ch`. 
 > 2. Add a new process called `COMBINE_COUNTS` that takes in the sample name, line count file, and word count file as inputs, and outputs a summary file for each sample.
 
 Run the workflow and check that the output files are correct. Use the preview DAG feature to see how the workflow looks now with three processes.
 
+??? question "Hints"
+
+    * To check that your join is working correctly, add a `.view()` operator and run the workflow with `-resume`. 
+    * Here's a checklist of the directives you should have in your `COMBINE_COUNTS` process:
+        * `publishDir:` should be the same as the other processes
+        * `input:` should have three items in a tuple: sample name, line count file path, and word count file path
+        * `output:` should have two items in a tuple: sample name and the summary file path
+        * In the `script:` section, think about how to adapt the bash code from `03_combine_counts.sh`. You only need to copy over lines 7-10 from the original bash script. Make sure to substitute the variable names with the Nextflow variable names. 
+    * Remember to call the `COMBINE_COUNTS` process in the `workflow` section, passing in the `joined_ch` channel.
+
 ??? success "Checkpoint"
 
     See solution in `solutions/07_combine_counts.nf`
+
+#### Adding process `AGGREGATE`
+
+We will now move on the writing the final process in our workflow, which is to aggregate all the summary files into a single file called `aggregate-summary.tsv`. This will adapt the bash script `04_aggregate.sh`. This script takes all the `.summary` files and combines them into a nice tab-separated file (TSV) with a header. So far we have written processes that take one or two defined inputs and produce one output, based on each sample. Because we've been doing per-sample processing we've had to carry over all the sample metadata. However, this final process will take an undefined number of input files (all the `.summary` files) and produce a single named output file. So at this point, we don't care about the sample names anymore. 
+
+Since this is a different type of process, let's break down how to write it.
+
+> **Question:** What is the input to this process?
+
+??? success "Answer"
+
+    The input is all the `.summary` files that have been produced. We don't have to enumerate them all, we just need to pass them all in as a channel. The channel will be a list of file paths, so the input will be `path summary_files`.
+
+> **Question:** Based on the shell script, what should the output be?
+
+??? success "Answer"
+
+    The output is a single file called `aggregate-summary.tsv`. So the output will be `path 'aggregate-summary.tsv'`.
+
+> **Question:** How do we modify the shell script to work in Nextflow?
+
+??? success "Hint"
+
+    We need to modify the shell script in two ways. 
+
+    1. We need to convert one variable to a nextflow variable, and that is the declaration of the for loop. Instead of using `for file in results/*summary`, we can use `for file in ${summary_files}`. 
+    2. The rest of the script uses bash variables, but the `$` signs need to be escaped with a backslash (`\`).
+
+??? success "Answer"
+
+    Here is the final script section:
+
+    ```nextflow
+    script:
+    """    
+    echo -e "sample\tlines\twords" > aggregate-summary.tsv
+    
+    for sample in ${summary_files}; do
+        SAMPLE_NAME=\$(basename "\$sample" .summary)
+        LINES=\$(cat "\$sample" | grep -e "^lines\t" | cut -f2)
+        WORDS=\$(cat "\$sample" | grep -e "^words\t" | cut -f2)
+        echo -e "\$SAMPLE_NAME\t\$LINES\t\$WORDS" >> aggregate-summary.tsv
+    done
+    """
+    ```
+
+Converting the process wasn't too difficult. But now we need to change the workflow section to call this process. The correct way to do this is to use the `.collect{}` operator on the output of `COMBINE_COUNTS`. The [collect operator](https://nextflow.io/docs/latest/reference/operator.html#collect) collects all items from a source channel into a list and emits it as a single item. You can use a closure (aka an anonymous function) to apply any transformations to each item before collecting them. In our case, we are only interested in collecting the second item in the tuple emitted by `COMBINE_COUNTS`, so we can use a closure to drop the first item (the sample name).
+
+```nextflow
+workflow {
+    /** 
+     ... 
+     previous code
+     ...
+    **/
+    collected_ch = COMBINE_COUNTS.out.collect{sample_name, summary_file -> summary_file}
+    collected_ch.view()
+    AGGREGATE(collected_ch)
+}
+```
+
+!!! note "`collect()` does not sort the items"
+
+    The `collect()` operator does not sort the items in the channel, so you will get the items in the order that they were emitted by the channel. If you need to sort the items, you can use the `sort()` operator before `collect()`.
+
+Putting it all together, your final workflow should look like `08_aggregate.nf` in the `solutions` directory. Run the workflow and check that the output file `aggregate-summary.tsv` is correct.
+
+??? success "Checkpoint"
+
+    See solution in `solutions/08_aggregate.nf`
+
 
