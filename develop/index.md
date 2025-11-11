@@ -423,4 +423,246 @@ Putting it all together, your final workflow should look like `08_aggregate.nf` 
 
     See solution in `solutions/08_aggregate.nf`
 
+Congratulations! You've now successfully converted a series of shell scripts into a Nextflow workflow! In the next sections, we will learn some more advanced topics that will help you write production-ready workflows. 
+
+## Customizing your Nextflow pipeline
+
+### Running on a cluster
+
+So far, our script will not work on the Cannon HPC cluster. To run on an HPC, we need to specify the executor in a config file. By default, the executor is set to `local`, but we want it to be `slurm` for Cannon so that jobs are submitted to the SLURM scheduler.
+
+In the previous workshop, we used a pre-made config file called `cannon.config` that was customized for Cannon. Let's take a look at what is inside, so that you may be able to write your own config for other clusters in the future. 
+
+[link to cannon.config file](https://nf-co.re/configs/cannon/)
+
+The important part of the config file is the `executor` directive, which is set to `slurm` under the `process` block. This sets the default behavior to submit jobs to the cluster. Then, the `queue` directive is set to the available partitions based on the resources that are being used by each process. Importantly, the `serial-requeue` partition is not used in this config because the Nextflow head job does not support requeuing jobs. The partition names and restrictions are specific to each HPC cluster, which is why each cluster needs its own config file.
+
+### Resources
+
+Resource management is crucial when running your workflow on the cluster. If it is unspecified, SLURM will used default resources for that HPC. On Cannon, the default resources for jobs is 10 minutes, 1 core, and 100 MB of memory, which is too low for most jobs.
+
+Resources can be specified in the `process` block of the main Nextflow script using the `cpus`, `memory`, and `time` directives. For example:
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    cpus 4
+    memory '8 GB'
+    time '2h'
+    ...
+}
+```
+
+However, hardcoding resource values is not ideal. If you want to make a modular workflow that other people can run, you should create a config file that specifies resources for each process. This way, other users can modify the resources without having to edit your `.nf` file. 
+
+Within a config file, there are a few ways to specify resources for processes. 
+
+**Specify global resources for all processes:**
+
+```nextflow title="nextflow.config"
+process {
+    cpus = 2
+    memory = '8 GB'
+    time = '2h'
+}
+```
+
+**Specify resources for a specific process:**
+
+```nextflow title="nextflow.config"
+process {
+    withName: EXAMPLE {
+        cpus = 4
+        memory = '8 GB'
+        time = '2h'
+    }
+}
+```
+
+**Specify resources for multiple processes using tags/labels:**
+
+```nextflow title="nextflow.config"
+process {
+    time = '2h'  // default time for all processes
+    cpus = 2    // default cpus for all processes
+    withLabel: high_memory {
+        memory = '32 GB'
+    }
+    withLabel: low_memory {
+        memory = '4 GB'
+    }
+}
+```
+
+And then in the process definition, you can add the label like this:
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    label 'high_memory'
+    ...
+}
+```
+
+Finally, you can also **specify dynamic resources** using process variables. For example, you can set the memory based on the size of the input file:
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    // check if input_files is a list. If list, allocate 2GB per file. Else allocate 2GB.
+    memory { input_files instanceof List ? input_files.size() * 2.GB : 2.GB }
+    
+    input:
+    path input_files
+    
+    output:
+    path 'some_output.txt'
+
+    script:
+    """
+    some_command ${input_files}
+    """
+}
+```
+
+### Error strategies
+
+Often when running on a cluster, jobs may fail due to temporary/stochastic issues, such as network problems, node issues, etc. Individual processes may also fail if that particular instance runs out of time or exceeds memory limits. By default, if a process fails, it sends a signal to terminate the workflow and pending jobs (even if unrelated) are killed. 
+
+Nextflow allows you to specify retry/error strategies for processes that fail so that it can be automatically resubmitted if it fails, or it can be ignored. Just like with resources, you can specify error strategy directly in the process or in the config file. Here are some examples of error strategies I have used:
+
+**Ignore a failed process**
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    errorStrategy 'ignore'
+    ...
+}
+```
+
+**Retry up until maximum maxRetries times. Otherwise, ignore**
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
+    ...
+}
+```
+
+**Retry with more resources up until maxRetries if exit status is in 137..140**
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    memory { 2.GB * task.attempt }
+    time { 1.hour * task.attempt }
+
+    errorStrategy { task.exitStatus in 137..140 ? 'retry' : 'terminate' }
+    ...
+}
+```
+
+**More complicated retry with exponential backoff & custom error message**
+
+I used this retry strategy when I was trying to download FASTQ files from SRA. Some of the accessions only contained forward or reverse reads, so I created a custom exit status of `99` to indicate that the download was incomplete and to not continue to the next step for this sample. I also implemented exponential backoff to avoid running into network issues when trying to mass download files. 
+
+```nextflow title="main.nf"
+process fetch_SRA {
+  // this error strategy ignores SRAs where one fastq is corrupted and does not download
+  errorStrategy {
+    sleep(Math.pow(2, task.attempt) * 200 as long)
+    if (task.exitStatus == 99) {
+      return 'ignore'
+    } else if (task.attempt==maxRetries){
+      return 'ignore'
+    }
+    return 'retry'
+  }
+  maxRetries 2
+  input:
+    val sraid
+  output:
+    tuple val(sraid), path('*_1.fastq'), path('*_2.fastq')
+  shell:
+    """
+     fastq-dump  --clip --skip-technical --maxSpotId 2000000 \\
+     --defline-seq '@\$sn/\$ri' --defline-qual '+\$sn/\$ri' --split-files ${sraid}
+
+    if [ -e "${sraid}_1.fastq" ] && [ -e "${sraid}_2.fastq" ]; then
+      true
+    else
+      exit 99
+    fi
+    """
+}
+```
+
+If you have a massively parallel workflow with many samples, it can be helpful to initially ignore failed processes and then use `-resume` to rerun only the failed processes after inspecting the errors. 
+
+## Software environments with Nextflow
+
+Another important component of a workflow is software dependencies. So far, we have been using basic bash, but in practice, we will be using specific software tools and libraries. One of the benefits of workflow managers is that you can specify a totally separate software environment for each rule, including different versions of software or even different programming languages. 
+
+### Conda
+
+!!! alert "Remember to enable conda"
+
+    If you want to use conda environments, remember to enable conda by running `nextflow run -with-conda` or adding `conda.enabled = true` in your config file.
+
+You can use the `conda` directive in the process block in a few ways. The first way is to specify a list of package names to be installed. 
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    conda 'fastqc trimmomatic=0.36 bioconda::bwa=0.7.15'
+    ...
+}
+```
+
+In the above example, conda will create an environment with the latest version of `fastqc`, version `0.36` of `trimmomatic`, and version `0.7.15` of `bwa` from the bioconda channel.
+
+Another way to specify conda environments is to use a conda environment file, formatted as a yaml file. A yaml file is a plain text file organized into key-value pairs that conda can use to create an environment. You can write a yaml file yourself like this:
+
+```yaml
+name: my_env_name
+channels:
+  - conda-forge
+dependencies:
+  - pandas=1.3.0
+  - numpy=1.21.0
+  - scikit-learn=0.24.2
+```
+
+Or you can export an existing conda environment to a yaml file using the command `conda env export --name my_env_name --file my_env_name.yaml`. Either way, put this yaml file in your project directory and then reference it in the `conda` directive like this:
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    conda 'my_env_name.yaml'
+    ...
+}   
+```
+
+The major benefit of using this yaml file is that it will always travel with your project so that it essentially makes the environment documented and portable. By specifying the version numbers of each software package, you can better ensure that your workflow will have consistent behavior. 
+
+### Singularity/Docker
+
+!!! alert "Remember to enable singularity"
+
+    If you want to use singularity containers, remember to enable singularity by running `nextflow run -with-singularity` or adding `singularity.enabled = true` in your config file.
+
+On the cluster, we also have the option of using container images. Containers are a way of packaging all the requirements of a software into one image file. Containers are run by software called Docker or Singularity. You can usually find container images on dockerhub or the biocontainers registry. Here is an example of a rule using the software `mafft` from the biocontainers registry.
+
+```nextflow title="main.nf"
+process EXAMPLE {
+    container "biocontainers/mafft:7.475--hdfd78af_0"
+    input:
+    path input_fasta
+    output:
+    path output_fasta
+    shell:
+        "mafft {input} > {output}"  
+}
+```
+
+## Modularizing your workflow
+
+### Subworkflows
+
+## Seqera platform demo
+
 
