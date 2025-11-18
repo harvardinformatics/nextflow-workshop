@@ -1,0 +1,4 @@
+sampleName,animal,mod,filePath
+sample1,turkey,uppercase,data/sample1.txt
+sample2,tux,lowercase,data/sample2.txt
+sample3,moose,duplicate,data/sample3.txt

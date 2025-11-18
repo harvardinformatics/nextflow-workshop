@@ -288,7 +288,7 @@ workflow {
 
 Now that we have a channel of tuples, we need to modify our processes to take as input and output tuples as well. We can use the `tuple` qualifier in the `input:` and `output:` sections of the process to start with. Then, for each item in the tuple we need to specify the qualifier with `()` syntax, separated by commas. For example, in our case, the first element will be `val(sample_name)`, and the second element will be `path(input_file)`. `sample_name` and `input_file` are variable names and can be anything you want.
 
-```groovy
+```nextflow linenums="1"
 process COUNT_LINES {
     
     input:
@@ -308,7 +308,7 @@ Look at the below for an example of how `05_count_words.nf` output should differ
 
 First script:
 
-```
+```title="Output" linenums="1"
 executor >  local (2)
 [ba/163bd1] COUNT_LINES (1) [100%] 2 of 2 ✔
 /../nextflow_workshop/develop/work/17/a7922d4378d328df6a74ec0558e292/sample1.lines
@@ -317,7 +317,7 @@ executor >  local (2)
 
 Second script:
 
-```
+```title="Output" linenums="1"
 [bb/779082] COUNT_LINES (1) [100%] 2 of 2 ✔
 [sample1, /../nextflow_workshop/develop/work/bb/7790822842b5bba6c53c69b286332a/sample1.lines]
 [sample2, /../nextflow_workshop/develop/work/f9/bc69d54beb8a9506bba3e9bac306f3/sample2.lines]
@@ -400,7 +400,7 @@ Since this is a different type of process, let's break down how to write it.
 
 Converting the process wasn't too difficult. But now we need to change the workflow section to call this process. The correct way to do this is to use the `.collect{}` operator on the output of `COMBINE_COUNTS`. The [collect operator](https://nextflow.io/docs/latest/reference/operator.html#collect) collects all items from a source channel into a list and emits it as a single item. You can use a closure (aka an anonymous function) to apply any transformations to each item before collecting them. In our case, we are only interested in collecting the second item in the tuple emitted by `COMBINE_COUNTS`, so we can use a closure to drop the first item (the sample name).
 
-```nextflow
+```nextflow linenums="1"
 workflow {
     /** 
      ... 
@@ -443,7 +443,7 @@ Resource management is crucial when running your workflow on the cluster. If it 
 
 Resources can be specified in the `process` block of the main Nextflow script using the `cpus`, `memory`, and `time` directives. For example:
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     cpus 4
     memory '8 GB'
@@ -458,7 +458,7 @@ Within a config file, there are a few ways to specify resources for processes.
 
 **Specify global resources for all processes:**
 
-```nextflow title="nextflow.config"
+```nextflow title="nextflow.config" linenums="1"
 process {
     cpus = 2
     memory = '8 GB'
@@ -468,7 +468,7 @@ process {
 
 **Specify resources for a specific process:**
 
-```nextflow title="nextflow.config"
+```nextflow title="nextflow.config" linenums="1"
 process {
     withName: EXAMPLE {
         cpus = 4
@@ -480,7 +480,7 @@ process {
 
 **Specify resources for multiple processes using tags/labels:**
 
-```nextflow title="nextflow.config"
+```nextflow title="nextflow.config" linenums="1"
 process {
     time = '2h'  // default time for all processes
     cpus = 2    // default cpus for all processes
@@ -495,7 +495,7 @@ process {
 
 And then in the process definition, you can add the label like this:
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     label 'high_memory'
     ...
@@ -504,7 +504,7 @@ process EXAMPLE {
 
 Finally, you can also **specify dynamic resources** using process variables. For example, you can set the memory based on the size of the input file:
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     // check if input_files is a list. If list, allocate 2GB per file. Else allocate 2GB.
     memory { input_files instanceof List ? input_files.size() * 2.GB : 2.GB }
@@ -530,7 +530,7 @@ Nextflow allows you to specify retry/error strategies for processes that fail so
 
 **Ignore a failed process**
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     errorStrategy 'ignore'
     ...
@@ -539,7 +539,7 @@ process EXAMPLE {
 
 **Retry up until maximum maxRetries times. Otherwise, ignore**
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     errorStrategy { task.attempt <= maxRetries ? 'retry' : 'ignore' }
     ...
@@ -548,7 +548,7 @@ process EXAMPLE {
 
 **Retry with more resources up until maxRetries if exit status is in 137..140**
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     memory { 2.GB * task.attempt }
     time { 1.hour * task.attempt }
@@ -562,7 +562,7 @@ process EXAMPLE {
 
 I used this retry strategy when I was trying to download FASTQ files from SRA. Some of the accessions only contained forward or reverse reads, so I created a custom exit status of `99` to indicate that the download was incomplete and to not continue to the next step for this sample. I also implemented exponential backoff to avoid running into network issues when trying to mass download files. 
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process fetch_SRA {
   // this error strategy ignores SRAs where one fastq is corrupted and does not download
   errorStrategy {
@@ -618,7 +618,7 @@ In the above example, conda will create an environment with the latest version o
 
 Another way to specify conda environments is to use a conda environment file, formatted as a yaml file. A yaml file is a plain text file organized into key-value pairs that conda can use to create an environment. You can write a yaml file yourself like this:
 
-```yaml
+```yaml linenums="1"
 name: my_env_name
 channels:
   - conda-forge
@@ -630,7 +630,7 @@ dependencies:
 
 Or you can export an existing conda environment to a yaml file using the command `conda env export --name my_env_name --file my_env_name.yaml`. Either way, put this yaml file in your project directory and then reference it in the `conda` directive like this:
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     conda 'my_env_name.yaml'
     ...
@@ -647,7 +647,7 @@ The major benefit of using this yaml file is that it will always travel with you
 
 On the cluster, we also have the option of using container images. Containers are a way of packaging all the requirements of a software into one image file. Containers are run by software called Docker or Singularity. You can usually find container images on dockerhub or the biocontainers registry. Here is an example of a rule using the software `mafft` from the biocontainers registry.
 
-```nextflow title="main.nf"
+```nextflow title="main.nf" linenums="1"
 process EXAMPLE {
     container "biocontainers/mafft:7.475--hdfd78af_0"
     input:
@@ -659,10 +659,124 @@ process EXAMPLE {
 }
 ```
 
-## Modularizing your workflow
+## More channel examples
 
-### Subworkflows
+One of the things that makes Nextflow both powerful and difficult to learn intitially is the syntax involved in channels and their operators. In this section, we will practice some more channel examples to showcase how data flow can be manipulated in Nextflow for more complex workflows.
+
+### Keeping metadata with meta map
+
+In our previous example, we used tuples to pass the sample name along with the file path through the workflow. This worked fine for one value of metadata, but what if we had a whole table of metadata that we wanted to keep track of? We can bundle all the metadata into a map/dictionary-like structure using key-value pairs. 
+
+Recall that in our previously finished script `08_aggregate.nf`, we created the initial channel like this:
+
+```nextflow linenums="1"
+workflow {
+    samples = Channel.fromPath('samplesheet.csv')
+        .splitCsv(header:true)
+        .map { row -> tuple(row.sampleName , file(row.filePath)) }
+}
+```
+
+Now let's imagine that our samplesheet had more columns, such as the following:
+
+```title="metadata/samplesheet.csv"
+sampleName,animal,mod,filePath
+sample1,turkey,uppercase,data/sample1.txt
+sample2,tux,uppercase,data/sample2.txt
+sample3,moose,duplicate,data/sample3.txt
+```
+
+We want to preserve all the metadata and separate it out from the file path. We can do this by nesting a list of the key-value pairs inside the tuple:
+
+```nextflow linenums="1"
+workflow {
+    samples = Channel.fromPath('samplesheet.csv')
+        .splitCsv(header:true)
+        .map { row -> 
+            tuple(                              // this spacing is optional
+                [                               // just to make thing readable
+                    sampleName: row.sampleName, // make sure the row.<col_name> matches csv header
+                    animal: row.animal,         // key can be anything you want
+                    mod: row.mod
+                ], 
+                file(row.filePath)
+            )
+        }
+    samples.view()
+}
+```
+
+Move to the `develop/metadata` directory and run the `main.nf` file there with the command `nextflow run main.nf -with-conda`. There will be some commented out sections in the workflow that we will uncomment as we go along. For now, running the `main.nf` file should print the following:
+
+```title="Output" linenums="1"
+N E X T F L O W   ~  version 25.04.6
+
+Launching `main.nf` [voluminous_perlman] DSL2 - revision: 4a401acec7
+
+[[sampleName:sample1, animal:turkey, mod:uppercase], /path/to/develop/metadata/data/sample1.txt]
+[[sampleName:sample2, animal:tux, mod:lowercase], /path/to/develop/metadata/data/sample2.txt]
+[[sampleName:sample3, animal:moose, mod:duplicate], /path/to/develop/metadata/data/sample3.txt]
+```
+
+As you can see, each item in the channel is a tuple consisting of a list of key-value pairs (the metadata) and a file path. Let's look at the `COWPY` process to see how we can access the metadata.
+
+```nextflow title="main.nf" linenums="1"
+process COWPY {
+
+    publishDir 'results', mode: 'copy'
+
+    conda 'envs/cowpy.yaml'
+
+    input:
+    tuple val(meta), path(input_file)
+
+    output:
+    tuple val(meta), path("${meta.animal}_mod-${meta.mod}.txt")
+
+    script:
+    """
+    cat ${input_file} | cowpy -c ${meta.animal} > ${meta.animal}_mod-${meta.mod}.txt
+    """
+}
+```
+
+In the `input:` section, we use `val(meta)` to access the metadata list, and `path(input_file)` to access the file path. In the `output:` section, we use `${meta.animal}` and `${meta.mod}` to access the values in the metadata list. Similarly, in the `script:` section, we use `${meta.animal}` as a parameter value for the `cowpy` command, so that we can make different "cowacters" based on the metadata. 
+
+
+
+### Filtering channels
+
+So far, we haven't done anything with the "mod" column in the samplesheet. It would be nice if we could apply different transformations to the text file based on the value of the "mod" column. So far, we've only seen workflows where each file goes through the same set of processes. But with the power of channels operators and metadata, we can create more branching paths for our data. 
+
+The primary operator we will use for this is the [filter](https://nextflow.io/docs/latest/reference/operator.html#filter) operator. Looking at the documentation, you will see that there are a lot of ways to filter a channel. For example, you can use a regular expression to filter strings, you can filter based on the type (like Number or File), or you can use a closure `{}` (aka anonymous function) to filter based on any condition you want. We'll use the last method to filter based on the value of the `meta.mod` value. 
+
+To do that, we can take our samples channel `ch_samples` and use the dot syntax to apply the `filter{}` operator. Inside the closure, we break out the `meta` and `file` items from the tuple, and then check if `meta.mod` matches (`==`) the desired value. We then use the `view()` operator to print out the filtered channel.
+
+```nextflow linenums="1"
+workflow{
+    ...
+    ch_samples.filter { meta, file -> meta.mod == 'duplicate' }
+        .view()
+}
+```
+
+Now let's comment out the `COWPY(ch_samples)` and uncomment the rest of the workflow.
+
+In our actual workflow, we create three filtered channels, one for each value of `meta.mod`. Then we pass each filtered channel to a different process that applies the desired transformation. We also have a slightly fancier `view()` operator call that makes the console look nicer. After we've done the transformations, we then combine all the channel outputs using the `mix()` operator and pass that to the `COWPY` process. 
+
+Rerun the full `main.nf` workflow now to see how the filtering works. `nextflow run main.nf -with-conda`
+
+!!! note "Other things to note about filtering"
+
+    * The `filter{}` operator does not change the original channel. It creates a new channel that only contains the items that pass the filter condition. Therefore, you can reuse the original channel multiple times to create different filtered channels.
+    * You can rename the filtered channel in-line by using the `.set{}` operator. For example `channel.of(10, 20, 30).set { my_channel }` is equivalent to `my_channel = channel.of(10, 20, 30)`.
+
+Looking over our final workflow, including the processes, you can see how clean the inputs and outputs are for each process. Each process gets the same inputs, and each transformation process has the same output structure. The important manipulations of files occurs in the workflow section using channel operators, rather than in the process definition. In this way, the processes are modular and reusable and the workflow is more flexible. 
 
 ## Seqera platform demo
+
+In this section, we will give a brief demo of the Seqera platform, which is a commercial platform for running Nextflow workflows. One of the ways in which Seqera commercializes Nextflow is by providing a web-based platform for running and monitoring Nextflow workflows. However, if we provide the hosting ourselves (using our own HPC), we can still take advantage of the web-based monitoring features of Seqera. To use it, we need to first get the API key from our Seqera account (which can just be your GitHub account or you can create a separate one with an email). Then, we need to add the API key to our Nextflow config file. In my case, I added it to my `.bashrc` so that it is always available and will never get accidentally committed to a public repo. Then, we can simply run any workflow with the `-with-tower` flag to enable remote monitoring. 
+
+## Additional topics/questions?
 
 
