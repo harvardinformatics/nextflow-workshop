@@ -59,10 +59,6 @@ Alternatively, you can refer to this meme:
         <img src="../img/nextflow_meme_full.png" class="fullimg" style="width:50%;">
       </label>
     </div>
-    <div class="caption">Click to view</div>
-    <label for="popup">
-      <center><img src="../img/nextflow_meme_full.png" alt="Snakemake vs Nextflow meme" style="cursor:pointer; width:50%;"></center>
-    </label>
 </div>
 
 
