@@ -1,5 +1,0 @@
-name: combine_counts
-channels:
-  - conda-forge
-dependencies:
-  - pandas=1.3.0

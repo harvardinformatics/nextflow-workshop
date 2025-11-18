@@ -73,19 +73,19 @@ workflow {
         }
     
     ch_samples.view()
-    //COWPY(ch_samples)
+    COWPY(ch_samples)
 
     //ch_samples.filter { meta, file -> meta.mod == 'duplicate' }.view{meta, file -> "Processing sample: $meta.animal from $file.name with $meta.mod" }
-    DUPLICATE(ch_samples.filter { meta, file -> meta.mod == 'duplicate' })
+    //DUPLICATE(ch_samples.filter { meta, file -> meta.mod == 'duplicate' })
     
     //ch_samples.filter { meta, file -> meta.mod == 'uppercase' }.view{meta, file -> "Processing sample: $meta.animal from $file.name with $meta.mod" }
-    CONVERT_TO_UPPERCASE(ch_samples.filter { meta, file -> meta.mod == 'uppercase' })
+    //CONVERT_TO_UPPERCASE(ch_samples.filter { meta, file -> meta.mod == 'uppercase' })
     
     //ch_samples.filter { meta, file -> meta.mod == 'lowercase' }.view{meta, file -> "Processing sample: $meta.animal from $file.name with $meta.mod" }
-    CONVERT_TO_LOWERCASE(ch_samples.filter { meta, file -> meta.mod == 'lowercase' })
+    //CONVERT_TO_LOWERCASE(ch_samples.filter { meta, file -> meta.mod == 'lowercase' })
     
-    ch_combined = DUPLICATE.out.mix(CONVERT_TO_UPPERCASE.out, CONVERT_TO_LOWERCASE.out)
+    //ch_combined = DUPLICATE.out.mix(CONVERT_TO_UPPERCASE.out, CONVERT_TO_LOWERCASE.out)
     
-    COWPY(ch_combined)
+    //COWPY(ch_combined)
     
 }
