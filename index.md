@@ -171,4 +171,4 @@ Click the buttons below to access the workshop content.
 
 #### [Part 1: Running a Nextflow workflow](run/){ .md-button .md-button--primary .centered }
 
-<!--#### [Part 2: Developing a Nextflow workflow](develop/){ .md-button .md-button--primary .centered } -->
+#### [Part 2: Developing a Nextflow workflow](develop/){ .md-button .md-button--primary .centered }
