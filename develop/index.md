@@ -52,8 +52,19 @@ In summary, in our opinion it is easier to get started with Snakemake, but Nextf
 If you want to quickly get something started in a workflow manager, Snakemake may be the better choice. If you want to learn something that will help you write production-grade workflows and may be more broadly applicable in the job world, Nextflow is worth the learning curve. 
 
 Alternatively, you can refer to this meme:
+<div>
+    <input type="checkbox" id="popup" style="display:none;">
+    <div class="backdrop" onclick="popup.checked=false;">
+      <label for="popup">
+        <img src="../img/nextflow_meme_full.png" class="fullimg" style="width:50%;">
+      </label>
+    </div>
+    <div class="caption">Click to view</div>
+    <label for="popup">
+      <center><img src="../img/nextflow_meme_full.png" alt="Snakemake vs Nextflow meme" style="cursor:pointer; width:50%;"></center>
+    </label>
+</div>
 
-![Snakemake vs Nextflow meme](../img/nextflow_meme_full.png)
 
 ## Converting shell scripts to Nextflow workflows
 
